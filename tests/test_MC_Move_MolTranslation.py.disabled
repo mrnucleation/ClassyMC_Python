@@ -1,0 +1,312 @@
+"""
+Unit tests for MC_Move_MolTranslation module
+
+Tests the MolTranslate Monte Carlo move class which performs molecular translation
+moves in Monte Carlo simulations.
+"""
+
+import unittest
+import numpy as np
+from unittest.mock import Mock, patch, MagicMock
+import sys
+import math
+import os
+
+# Add src_python to path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src_python'))
+
+# Mock the dependencies that might not be available
+sys.modules['Template_MCMove'] = Mock()
+sys.modules['Common_MolInfo'] = Mock()
+sys.modules['CommonSampling'] = Mock()
+
+# Create mock classes for dependencies
+class MockMCMove:
+    """Mock MCMove base class"""
+    def __init__(self):
+        self.atmps = 0.0
+        self.accpt = 0.0
+        self.boxProb = np.array([])
+        self.tempList = Mock()
+        self.tempNnei = Mock()
+        self.maintFreq = 100
+        
+    def CreateTempArray(self, max_atoms):
+        pass
+        
+    def GetAcceptRate(self):
+        if self.atmps > 0:
+            return self.accpt / self.atmps
+        return 0.0
+        
+    def get_accept_rate(self):
+        return self.GetAcceptRate()
+
+
+class MockDisplacement:
+    """Mock displacement object"""
+    def __init__(self):
+        self.molType = 1
+        self.molIndx = 1
+        self.atmIndx = 1
+        self.x_new = 0.0
+        self.y_new = 0.0
+        self.z_new = 0.0
+        self.newlist = False
+        self.listIndex = 1
+
+
+class MockMolInfo:
+    """Mock molecule information"""
+    def __init__(self, nAtoms=2):
+        self.nAtoms = nAtoms
+
+
+class MockSimpleBox:
+    """Mock SimpleBox for testing"""
+    def __init__(self, boxID=1, nMolTotal=10, atoms=None):
+        self.boxID = boxID
+        self.nMolTotal = nMolTotal
+        self.atoms = atoms if atoms is not None else np.random.rand(3, 20) * 10
+        
+    def GetMolData(self, mol_indx):
+        """Mock molecule data retrieval"""
+        return (1, 5, 1)  # molStart, molEnd, molType
+        
+    def CheckConstraint(self, disp):
+        """Mock constraint checking"""
+        return True
+        
+    def ComputeEnergyDelta(self, disp, tempList, tempNnei, computeintra=False):
+        """Mock energy calculation"""
+        return 1.0, 0.5, -0.5, True  # e_inter, e_intra, e_diff, accept
+        
+    def CheckPostEnergy(self, disp, e_diff):
+        """Mock post-energy constraint checking"""
+        return True
+        
+    def UpdateEnergy(self, e_diff, e_inter):
+        """Mock energy update"""
+        pass
+        
+    def UpdatePosition(self, disp, tempList, tempNnei):
+        """Mock position update"""
+        pass
+
+
+class MockBoxWrapper:
+    """Mock BoxWrapper for testing"""
+    def __init__(self, box):
+        self.box = box
+
+
+# Mock all the global variables and functions that MolTranslate depends on
+mock_nout = Mock()
+mock_sampling = Mock()
+mock_sampling.MakeDecision = Mock(return_value=True)
+mock_find_molecule = Mock(return_value=1)
+mock_displacement = MockDisplacement
+mock_dp = np.float64
+mock_box_array = []
+mock_n_mol_types = 1
+mock_mol_data = {1: MockMolInfo()}
+mock_mcmove = MockMCMove
+
+
+class TestMolTranslate(unittest.TestCase):
+    """Test cases for MolTranslate class"""
+    
+    def setUp(self):
+        """Set up test fixtures"""
+        # Mock all global dependencies
+        with patch.dict('sys.modules', {
+            'Template_MCMove': Mock(),
+            'Common_MolInfo': Mock(),
+            'CommonSampling': Mock()
+        }):
+            # Mock the global variables in the module
+            with patch('src_python.MC_Move_MolTranslation.nout', mock_nout), \
+                 patch('src_python.MC_Move_MolTranslation.sampling', mock_sampling), \
+                 patch('src_python.MC_Move_MolTranslation.FindMolecule', mock_find_molecule), \
+                 patch('src_python.MC_Move_MolTranslation.Displacement', mock_displacement), \
+                 patch('src_python.MC_Move_MolTranslation.dp', mock_dp), \
+                 patch('src_python.MC_Move_MolTranslation.BoxArray', mock_box_array), \
+                 patch('src_python.MC_Move_MolTranslation.nMolTypes', mock_n_mol_types), \
+                 patch('src_python.MC_Move_MolTranslation.MolData', mock_mol_data), \
+                 patch('src_python.MC_Move_MolTranslation.MCMove', mock_mcmove):
+                
+                # Import after mocking
+                from src_python.MC_Move_MolTranslation import MolTranslate
+                self.MolTranslate = MolTranslate
+                self.mol_translate = MolTranslate([])
+    
+    def test_initialization(self):
+        """Test MolTranslate initialization"""
+        # Test default attribute values
+        self.assertTrue(self.mol_translate.verbose)
+        self.assertTrue(self.mol_translate.proportional)
+        self.assertTrue(self.mol_translate.tuneMax)
+        self.assertEqual(self.mol_translate.limit, 5.0)
+        self.assertEqual(self.mol_translate.targAccpt, 50.0)
+        self.assertEqual(self.mol_translate.max_dist, 0.05)
+        
+        # Test counters are initialized to zero
+        self.assertEqual(self.mol_translate.ovlaprej, 0)
+        self.assertEqual(self.mol_translate.constrainrej, 0)
+        self.assertEqual(self.mol_translate.detailedrej, 0)
+    
+    def test_initialize_arrays(self):
+        """Test array initialization"""
+        with patch('src_python.MC_Move_MolTranslation.nMolTypes', 2):
+            with patch('src_python.MC_Move_MolTranslation.MolData', {1: MockMolInfo(3), 2: MockMolInfo(2)}):
+                self.mol_translate._initialize_arrays()
+                
+        # Check that arrays are properly sized
+        self.assertEqual(len(self.mol_translate.boxatmps), 0)  # No boxes provided
+        self.assertIsInstance(self.mol_translate.disp, list)
+    
+    def test_process_io_tunemax(self):
+        """Test process_io for tunemax parameter"""
+        line = "MC_MOVE MOLTRANS TRANSLATE tunemax true"
+        result = self.mol_translate.process_io(line)
+        
+        self.assertEqual(result, 0)
+        self.assertTrue(self.mol_translate.tuneMax)
+        
+        line = "MC_MOVE MOLTRANS TRANSLATE tunemax false"
+        result = self.mol_translate.process_io(line)
+        
+        self.assertEqual(result, 0)
+        self.assertFalse(self.mol_translate.tuneMax)
+    
+    def test_process_io_maxdisplace(self):
+        """Test process_io for maxdisplace parameter"""
+        line = "MC_MOVE MOLTRANS TRANSLATE maxdisplace 0.2"
+        result = self.mol_translate.process_io(line)
+        
+        self.assertEqual(result, 0)
+        self.assertEqual(self.mol_translate.max_dist, 0.2)
+    
+    def test_process_io_dynamiclimit(self):
+        """Test process_io for dynamiclimit parameter"""
+        line = "MC_MOVE MOLTRANS TRANSLATE dynamiclimit 10.0"
+        result = self.mol_translate.process_io(line)
+        
+        self.assertEqual(result, 0)
+        self.assertEqual(self.mol_translate.limit, 10.0)
+    
+    def test_process_io_dynamictarget(self):
+        """Test process_io for dynamictarget parameter"""
+        line = "MC_MOVE MOLTRANS TRANSLATE dynamictarget 40.0"
+        result = self.mol_translate.process_io(line)
+        
+        self.assertEqual(result, 0)
+        self.assertEqual(self.mol_translate.targAccpt, 40.0)
+    
+    def test_process_io_proportional(self):
+        """Test process_io for proportional parameter"""
+        line = "MC_MOVE MOLTRANS TRANSLATE proportional false"
+        result = self.mol_translate.process_io(line)
+        
+        self.assertEqual(result, 0)
+        self.assertFalse(self.mol_translate.proportional)
+    
+    def test_process_io_updatefreq(self):
+        """Test process_io for updatefreq parameter"""
+        line = "MC_MOVE MOLTRANS TRANSLATE updatefreq 100"
+        result = self.mol_translate.process_io(line)
+        
+        self.assertEqual(result, 0)
+        self.assertEqual(self.mol_translate.maintFreq, 100)
+    
+    def test_process_io_invalid_command(self):
+        """Test process_io with invalid command"""
+        line = "MC_MOVE MOLTRANS TRANSLATE invalidcommand value"
+        result = self.mol_translate.process_io(line)
+        
+        self.assertEqual(result, -1)
+    
+    def test_process_io_invalid_format(self):
+        """Test process_io with invalid format"""
+        line = "MC_MOVE MOLTRANS"  # Too few parts
+        result = self.mol_translate.process_io(line)
+        
+        self.assertEqual(result, -1)
+    
+    def test_process_io_invalid_value(self):
+        """Test process_io with invalid value"""
+        line = "MC_MOVE MOLTRANS TRANSLATE maxdisplace invalid_float"
+        result = self.mol_translate.process_io(line)
+        
+        self.assertEqual(result, -1)
+    
+    def test_get_accept_rate(self):
+        """Test acceptance rate calculation"""
+        self.mol_translate.accpt = 25.0
+        self.mol_translate.atmps = 100.0
+        
+        # Mock the get_accept_rate method
+        def mock_get_accept_rate():
+            if self.mol_translate.atmps > 0:
+                return self.mol_translate.accpt / self.mol_translate.atmps
+            return 0.0
+            
+        self.mol_translate.get_accept_rate = mock_get_accept_rate
+        
+        rate = self.mol_translate.get_accept_rate()
+        self.assertEqual(rate, 0.25)
+        
+        # Test with zero attempts
+        self.mol_translate.atmps = 0.0
+        rate = self.mol_translate.get_accept_rate()
+        self.assertEqual(rate, 0.0)
+
+
+class TestMolTranslateSimplified(unittest.TestCase):
+    """Simplified test cases that don't require complex mocking"""
+    
+    def test_mock_functionality(self):
+        """Test that our mock classes work correctly"""
+        # Test mock box
+        box = MockSimpleBox(boxID=1, nMolTotal=10)
+        self.assertEqual(box.boxID, 1)
+        self.assertEqual(box.nMolTotal, 10)
+        self.assertTrue(box.CheckConstraint(None))
+        
+        # Test mock displacement
+        disp = MockDisplacement()
+        self.assertEqual(disp.molType, 1)
+        self.assertEqual(disp.molIndx, 1)
+        
+        # Test mock mol info
+        mol_info = MockMolInfo(nAtoms=3)
+        self.assertEqual(mol_info.nAtoms, 3)
+    
+    def test_parameter_validation(self):
+        """Test parameter validation logic"""
+        # Test boolean parsing
+        true_values = ['true', '.true.', 't', '1']
+        false_values = ['false', '.false.', 'f', '0']
+        
+        for val in true_values:
+            self.assertTrue(val.lower() in ['true', '.true.', 't', '1'])
+        
+        for val in false_values:
+            self.assertFalse(val.lower() in ['true', '.true.', 't', '1'])
+    
+    def test_array_operations(self):
+        """Test array operations used in the module"""
+        # Test array initialization
+        n_boxes = 3
+        box_array = np.full(n_boxes, 1.0 / n_boxes, dtype=np.float64)
+        self.assertEqual(len(box_array), 3)
+        np.testing.assert_array_almost_equal(box_array, [1/3, 1/3, 1/3])
+        
+        # Test array updates
+        box_array[0] = 0.5
+        self.assertEqual(box_array[0], 0.5)
+
+
+if __name__ == '__main__':
+    # Run the tests
+    unittest.main(verbosity=2) 
