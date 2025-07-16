@@ -145,12 +145,9 @@ class SimpleBox(SimBox):
         
         print(f"SimpleBox initialized with {self.nMaxAtoms} max atoms, {self.maxMol} max molecules")
         
-        
-    def collapse_mols_to_array(self):
-        
-        
-    
-
+    def _build_indexing_arrays(self):
+        """Build indexing arrays for the box"""
+        pass
     
     def load_dimension(self, line):
         """
@@ -158,6 +155,7 @@ class SimpleBox(SimBox):
         Default implementation for boxes without specific dimensions
         """
         return 0  # Success by default for simple box
+    
     
     def boundary(self, rx):
         """
