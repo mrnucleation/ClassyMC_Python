@@ -15,6 +15,7 @@ from .VarPrecision import dp
 from typing import Optional, List, Dict, Tuple, Any, Union
 
 
+# =============================================================================
 class SimpleBox(SimBox):
     """
     Simple simulation box implementation that serves as the base class for most box types.
@@ -116,10 +117,14 @@ class SimpleBox(SimBox):
         # Build indexing arrays
         print(f"SimpleBox initialized with {self.nMaxAtoms} max atoms, {self.maxMol} max molecules")
         
-    def _build_indexing_arrays(self):
-        """Build indexing arrays for the box"""
-        pass
+        
+    # -------------------------------------------------------------------------
+    def collapse_mols_to_array(self):
+        """Collapse molecules to array representation"""
+        pass  # Implementation would go here
+
     
+    # -------------------------------------------------------------------------
     def load_dimension(self, line):
         """
         Corresponds to Simplebox_LoadDimension
@@ -127,7 +132,7 @@ class SimpleBox(SimBox):
         """
         return 0  # Success by default for simple box
     
-    
+    # -------------------------------------------------------------------------
     def boundary(self, rx):
         """
         Corresponds to SimpleBox_Boundary
@@ -135,6 +140,7 @@ class SimpleBox(SimBox):
         """
         return rx
     
+    # -------------------------------------------------------------------------
     def compute_energy(self, tablecheck=False):
         """
         Corresponds to SimpleBox_ComputeEnergy
@@ -163,6 +169,7 @@ class SimpleBox(SimBox):
         
         return True
     
+    # -------------------------------------------------------------------------
     def compute_intra_energy(self):
         """
         Corresponds to SimpleBox_ComputeIntraEnergy
@@ -181,6 +188,7 @@ class SimpleBox(SimBox):
         
         return E_Total, accept
     
+    # -------------------------------------------------------------------------
     def compute_mol_intra(self, molType, molIndx, newpos=None, fragment=None):
         """
         Corresponds to SimpleBox_ComputeMolIntra
@@ -242,21 +250,25 @@ class SimpleBox(SimBox):
         
         return E_Intra, True
     
+    # -------------------------------------------------------------------------
     def _compute_bond_energy(self, bond, coords):
         """Compute energy for a bond interaction"""
         # Placeholder - would call appropriate bond force field
         return 0.0, True
     
+    # -------------------------------------------------------------------------
     def _compute_angle_energy(self, angle, coords):
         """Compute energy for an angle interaction"""
         # Placeholder - would call appropriate angle force field
         return 0.0, True
     
+    # -------------------------------------------------------------------------
     def _compute_torsion_energy(self, torsion, coords):
         """Compute energy for a torsion interaction"""
         # Placeholder - would call appropriate torsion force field
         return 0.0, True
     
+    # -------------------------------------------------------------------------
     def compute_energy_delta(self, disp, templist=None, tempnnei=None, computeintra=None):
         """
         Corresponds to SimpleBox_ComputeEnergyDelta
@@ -280,6 +292,7 @@ class SimpleBox(SimBox):
         
         return E_Inter, E_Intra, accept
     
+    # -------------------------------------------------------------------------
     def compute_intra_energy_delta(self, disp):
         """
         Corresponds to SimpleBox_ComputeIntraEnergyDelta
@@ -321,6 +334,7 @@ class SimpleBox(SimBox):
         
         return E_Intra, True
     
+    # -------------------------------------------------------------------------
     def get_coordinates(self, slice_range=None):
         """
         Corresponds to SimpleBox_GetCoordinates  
@@ -332,6 +346,7 @@ class SimpleBox(SimBox):
             start, end = slice_range
             return self.atoms[start:end+1, :]
     
+    # -------------------------------------------------------------------------
     def get_mol_data(self, global_indx, **kwargs):
         """
         Corresponds to SimpleBox_GetMolData
@@ -359,6 +374,7 @@ class SimpleBox(SimBox):
         
         return result
     
+    # -------------------------------------------------------------------------
     def is_active(self, atom_indx):
         """
         Corresponds to SimpleBox_IsActive
@@ -376,6 +392,7 @@ class SimpleBox(SimBox):
         
         return molSubIndx < self.NMol[molType]
     
+    # -------------------------------------------------------------------------
     def add_mol(self, molType, coords):
         """
         Corresponds to SimpleBox_AddMol
@@ -399,6 +416,7 @@ class SimpleBox(SimBox):
         
         return True
     
+    # -------------------------------------------------------------------------
     def delete_mol(self, molType, molSubIndx):
         """
         Corresponds to SimpleBox_DeleteMol
@@ -433,6 +451,7 @@ class SimpleBox(SimBox):
         
         return True
     
+    # -------------------------------------------------------------------------
     def update_position(self, disp):
         """
         Corresponds to SimpleBox_UpdatePosition
@@ -445,6 +464,7 @@ class SimpleBox(SimBox):
                 self.atoms[atmIndx, 1] = displacement.y_new
                 self.atoms[atmIndx, 2] = displacement.z_new
     
+    # -------------------------------------------------------------------------
     def check_constraint(self, disp=None):
         """
         Corresponds to SimpleBox_CheckConstraint
@@ -463,6 +483,7 @@ class SimpleBox(SimBox):
         
         return True
     
+    # -------------------------------------------------------------------------
     def check_post_energy(self, disp, E_Diff):
         """
         Corresponds to SimpleBox_CheckPostEnergy
@@ -478,6 +499,7 @@ class SimpleBox(SimBox):
         
         return True
     
+    # -------------------------------------------------------------------------
     def compute_cm(self, molIndx):
         """
         Corresponds to SimpleBox_ComputeCM
@@ -499,6 +521,7 @@ class SimpleBox(SimBox):
         if total_mass > 0:
             self.centerMass[molIndx, :] = cm / total_mass
     
+    # -------------------------------------------------------------------------
     def get_thermo(self, thermo_id):
         """
         Get thermodynamic property by ID
@@ -512,6 +535,7 @@ class SimpleBox(SimBox):
         }
         return thermo_map.get(thermo_id, 0.0)
     
+    # -------------------------------------------------------------------------
     def thermo_lookup(self, property_name):
         """
         Get thermodynamic property ID by name
@@ -525,6 +549,7 @@ class SimpleBox(SimBox):
         }
         return name_map.get(property_name.lower(), -1)
     
+    # -------------------------------------------------------------------------
     def count_atoms(self, molType=None):
         """
         Corresponds to SimpleBox_CountAtoms
@@ -540,18 +565,22 @@ class SimpleBox(SimBox):
         
         return count
     
+    # -------------------------------------------------------------------------
     def get_max_atoms(self):
         """Get maximum number of atoms"""
         return self.nMaxAtoms
     
+    # -------------------------------------------------------------------------
     def get_max_mol(self):
         """Get maximum number of molecules"""  
         return self.maxMol
     
+    # -------------------------------------------------------------------------
     def get_min_mol(self, molType):
         """Get minimum molecules for a type"""
         return self.NMolMin[molType]
     
+    # -------------------------------------------------------------------------
     def update_volume(self, new_volume):
         """
         Corresponds to SimpleBox_UpdateVolume
@@ -559,6 +588,7 @@ class SimpleBox(SimBox):
         """
         self.volume = new_volume
     
+    # -------------------------------------------------------------------------
     def update_energy(self, E_Diff):
         """
         Corresponds to SimpleBox_UpdateEnergy
@@ -566,6 +596,7 @@ class SimpleBox(SimBox):
         """
         self.ETotal += E_Diff
     
+    # -------------------------------------------------------------------------
     def update_neigh_lists(self, disp):
         """
         Corresponds to SimpleBox_UpdateNeighLists
@@ -575,6 +606,7 @@ class SimpleBox(SimBox):
             for neighList in self.NeighList:
                 neighList.update(disp)
     
+    # -------------------------------------------------------------------------
     def prologue(self):
         """
         Corresponds to SimpleBox_Prologue
@@ -604,6 +636,7 @@ class SimpleBox(SimBox):
         print(f"Box {self.boxID} initialized with {self.nMolTotal} molecules")
         print(f"Box {self.boxID} Total Energy: {self.ETotal}")
     
+    # -------------------------------------------------------------------------
     def epilogue(self):
         """
         Corresponds to SimpleBox_Epilogue
@@ -613,6 +646,7 @@ class SimpleBox(SimBox):
         print(f"Final energy: {self.ETotal}")
         print(f"Neighbor list rebuilds: {self.rebuilds}")
     
+    # -------------------------------------------------------------------------
     def maintenance(self):
         """
         Corresponds to SimpleBox_Maintenance
@@ -626,6 +660,7 @@ class SimpleBox(SimBox):
             self.rebuilds += 1
             self.largestdr = 0.0
     
+    # -------------------------------------------------------------------------
     def update(self):
         """
         Corresponds to SimpleBox_Update
@@ -634,6 +669,7 @@ class SimpleBox(SimBox):
         # Update displacement tracking
         self.largestdr = np.max(self.drsq) if self.drsq is not None else 0.0
     
+    # -------------------------------------------------------------------------
     def safety_check(self):
         """
         Corresponds to SimpleBox_EnergySafetyCheck
@@ -644,6 +680,7 @@ class SimpleBox(SimBox):
             self.compute_energy()
             self.forceERecompute = False
     
+    # -------------------------------------------------------------------------
     def process_io(self, line):
         """
         Corresponds to SimpleBox_ProcessIO
@@ -678,6 +715,7 @@ class SimpleBox(SimBox):
         # If not handled here, return to parent class
         return super().process_io(line)
     
+    # -------------------------------------------------------------------------
     def dump_data(self, filename):
         """
         Corresponds to SimpleBox_DumpData
@@ -700,11 +738,12 @@ class SimpleBox(SimBox):
                         atomSubIndx = self.AtomSubIndx[iAtom]
                         coords = self.atoms[iAtom, :]
                         f.write(f"{molType+1} {molSubIndx+1} {atomSubIndx+1} "
-                               f"{coords[0]} {coords[1]} {coords[2]}\n")
+                               f"{coords[0]} {coords[1]} {coords[2]}\\n")
                         
         except IOError as e:
             print(f"Error writing dump file {filename}: {e}", file=sys.stderr)
     
+    # -------------------------------------------------------------------------
     def get_reduced_coords(self, real_coords):
         """
         Corresponds to SimpleBox_GetReducedCoords
@@ -712,6 +751,7 @@ class SimpleBox(SimBox):
         """
         return np.array(real_coords)
     
+    # -------------------------------------------------------------------------
     def get_real_coords(self, reduced_coords):
         """
         Corresponds to SimpleBox_GetRealCoords  
@@ -719,7 +759,11 @@ class SimpleBox(SimBox):
         """
         return np.array(reduced_coords)
     
+    # -------------------------------------------------------------------------
     def __del__(self):
         """Destructor equivalent"""
         # Python handles memory management automatically
         pass
+
+
+# =============================================================================
