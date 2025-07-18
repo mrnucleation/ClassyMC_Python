@@ -373,25 +373,6 @@ class SimpleBox(SimBox):
                 return result[key]
         
         return result
-    
-    # -------------------------------------------------------------------------
-    def is_active(self, atom_indx):
-        """
-        Corresponds to SimpleBox_IsActive
-        Check if an atom index is currently active (has a molecule)
-        """
-        if atom_indx >= self.nMaxAtoms or atom_indx < 0:
-            return False
-        
-        molIndx = self.MolIndx[atom_indx]
-        molType = self.MolType[atom_indx]
-        molSubIndx = self.MolSubIndx[atom_indx]
-        
-        if molType >= self.nMolTypes or molType < 0:
-            return False
-        
-        return molSubIndx < self.NMol[molType]
-    
     # -------------------------------------------------------------------------
     def add_mol(self, molType, coords):
         """

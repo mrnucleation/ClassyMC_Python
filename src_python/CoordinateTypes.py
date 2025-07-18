@@ -14,21 +14,15 @@ class Displacement:
     Base displacement class for atomic moves.
     Corresponds to the Fortran Displacement type.
     """
-    
-    def __init__(self):
+
+    def __init__(self, molType, molIndx, atmIndx, newPositions):
         # Molecule information
-        self.molType = 0
-        self.molIndx = 0
-        self.atmIndx = 0
+        self.molType = molType
+        self.molIndx = molIndx
+        self.atmIndx = atmIndx
+        # New positions of atoms
+        self.X = newPositions
         
-        # New coordinates
-        self.x_new = 0.0
-        self.y_new = 0.0
-        self.z_new = 0.0
-        
-        # Neighbor list information
-        self.newlist = False
-        self.listIndex = 0
 
 
 class Addition(Displacement):
