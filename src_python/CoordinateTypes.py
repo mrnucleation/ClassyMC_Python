@@ -9,6 +9,7 @@ import numpy as np
 from VarPrecision import dp
 
 
+# =============================================================================
 class Displacement:
     """
     Base displacement class for atomic moves.
@@ -22,9 +23,11 @@ class Displacement:
         self.atmIndx = atmIndx
         # New positions of atoms
         self.X = newPositions
+# =============================================================================
         
 
 
+# =============================================================================
 class Addition(Displacement):
     """
     Displacement class for addition moves.
@@ -34,8 +37,10 @@ class Addition(Displacement):
     def __init__(self):
         super().__init__()
         self.addition = True
+# =============================================================================
 
 
+# =============================================================================
 class Deletion(Displacement):
     """
     Displacement class for deletion moves.
@@ -45,8 +50,10 @@ class Deletion(Displacement):
     def __init__(self):
         super().__init__()
         self.deletion = True
+# =============================================================================
 
 
+# =============================================================================
 class OrthoVolChange:
     """
     Displacement class for orthogonal volume changes.
@@ -62,8 +69,10 @@ class OrthoVolChange:
         self.xScale = 1.0
         self.yScale = 1.0
         self.zScale = 1.0
+# =============================================================================
 
 
+# =============================================================================
 class TriVolChange:
     """
     Displacement class for triclinic volume changes.
@@ -77,8 +86,10 @@ class TriVolChange:
         
         # Matrix transformation
         self.matrix = np.eye(3, dtype=dp)
+# =============================================================================
 
 
+# =============================================================================
 class AtomExchange(Displacement):
     """
     Displacement class for atom exchange moves.
@@ -93,3 +104,4 @@ class AtomExchange(Displacement):
         self.newType = 0
         self.oldAtmIndx = 0
         self.newAtmIndx = 0 
+# =============================================================================
