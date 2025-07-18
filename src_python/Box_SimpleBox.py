@@ -502,33 +502,6 @@ class SimpleBox(SimBox):
         if total_mass > 0:
             self.centerMass[molIndx, :] = cm / total_mass
     
-    # -------------------------------------------------------------------------
-    def get_thermo(self, thermo_id):
-        """
-        Get thermodynamic property by ID
-        """
-        thermo_map = {
-            0: self.ETotal,
-            1: self.volume,
-            2: self.pressure,
-            3: self.temperature,
-            4: self.HTotal
-        }
-        return thermo_map.get(thermo_id, 0.0)
-    
-    # -------------------------------------------------------------------------
-    def thermo_lookup(self, property_name):
-        """
-        Get thermodynamic property ID by name
-        """
-        name_map = {
-            'energy': 0,
-            'volume': 1,
-            'pressure': 2,
-            'temperature': 3,
-            'enthalpy': 4
-        }
-        return name_map.get(property_name.lower(), -1)
     
     # -------------------------------------------------------------------------
     def count_atoms(self, molType=None):
@@ -546,28 +519,7 @@ class SimpleBox(SimBox):
         
         return count
     
-    # -------------------------------------------------------------------------
-    def get_max_atoms(self):
-        """Get maximum number of atoms"""
-        return self.nMaxAtoms
     
-    # -------------------------------------------------------------------------
-    def get_max_mol(self):
-        """Get maximum number of molecules"""  
-        return self.maxMol
-    
-    # -------------------------------------------------------------------------
-    def get_min_mol(self, molType):
-        """Get minimum molecules for a type"""
-        return self.NMolMin[molType]
-    
-    # -------------------------------------------------------------------------
-    def update_volume(self, new_volume):
-        """
-        Corresponds to SimpleBox_UpdateVolume
-        Update the box volume
-        """
-        self.volume = new_volume
     
     # -------------------------------------------------------------------------
     def update_energy(self, E_Diff):
@@ -731,7 +683,6 @@ class SimpleBox(SimBox):
         Convert real coordinates to reduced coordinates (default: no transformation)
         """
         return np.array(real_coords)
-    
     # -------------------------------------------------------------------------
     def get_real_coords(self, reduced_coords):
         """
@@ -739,12 +690,4 @@ class SimpleBox(SimBox):
         Convert reduced coordinates to real coordinates (default: no transformation)
         """
         return np.array(reduced_coords)
-    
-    # -------------------------------------------------------------------------
-    def __del__(self):
-        """Destructor equivalent"""
-        # Python handles memory management automatically
-        pass
-
-
 # =============================================================================
