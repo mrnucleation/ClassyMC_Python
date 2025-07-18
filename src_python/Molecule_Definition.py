@@ -214,10 +214,74 @@ class Molecule:
         assert len(self.position_array.shape) == 2, "Position array must be a 2D array"
         assert self.position_array.shape[0] == len(self.moltype.topo.atoms), "Position array must be the same length as the number of atoms"
         
+        # Additional molecule properties
+        self.mol_id = None  # Will be set when added to box
+        self.box_id = None  # Will be set when added to box
+        self.energy = 0.0   # Total energy of molecule
+        self.intra_energy = 0.0  # Intramolecular energy
+        self.inter_energy = 0.0  # Intermolecular energy
+        
     #--------------------------------
     def get_moltype(self):
         return self.moltype
+    
+    #--------------------------------
+    def get_positions(self):
+        """Get the current positions of all atoms in the molecule"""
+        return self.position_array
+    
+    #--------------------------------
+    def set_positions(self, new_positions):
+        """Set new positions for all atoms in the molecule"""
+        assert len(new_positions) == len(self.position_array), "New positions must match atom count"
+        self.position_array = new_positions
+    
+    #--------------------------------
+    def get_atom_count(self):
+        """Get the number of atoms in this molecule"""
+        return len(self.position_array)
+    
+    #--------------------------------
+    def get_bond_count(self):
+        """Get the number of bonds in this molecule"""
+        return self.moltype.n_bonds
+    
+    #--------------------------------
+    def get_angle_count(self):
+        """Get the number of angles in this molecule"""
+        return self.moltype.n_angles
+    
+    #--------------------------------
+    def get_torsion_count(self):
+        """Get the number of torsions in this molecule"""
+        return self.moltype.n_torsions
+    
+    #--------------------------------
+    def compute_center_of_mass(self):
+        """Compute the center of mass of the molecule"""
+        if len(self.position_array) == 0:
+            return np.zeros(3)
         
-        
-        
-        
+        # For now, assume equal mass for all atoms
+        # In a real implementation, this would use actual atomic masses
+        return np.mean(self.position_array, axis=0)
+    
+    #--------------------------------
+    def to_dict(self):
+        """Convert molecule to dictionary representation"""
+        return {
+            'moltype': self.moltype.topo.name,
+            'positions': self.position_array.tolist(),
+            'mol_id': self.mol_id,
+            'box_id': self.box_id,
+            'energy': self.energy
+        }
+    
+    #--------------------------------
+    def __str__(self):
+        """String representation of the molecule"""
+        return f"Molecule(type={self.moltype.topo.name}, atoms={len(self.position_array)}, id={self.mol_id})"
+    
+    #--------------------------------
+    def __repr__(self):
+        return self.__str__()

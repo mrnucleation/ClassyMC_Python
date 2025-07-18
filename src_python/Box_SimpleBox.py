@@ -21,10 +21,15 @@ class SimpleBox(SimBox):
     Corresponds to the Fortran SimpleBox type.
     """
     
-    def __init__(self, NMolMin=None, NMolMax=None, NMol=None, nDimensions=3):
+    def __init__(self, molData, NMolMin=None, NMolMax=None, NMol=None, nDimensions=3):
         """Initialize the SimpleBox with molecular data"""
         super().__init__()
-        
+
+        self.MolData = molData
+        self.nMolTypes = len(molData)
+        self.nDimensions = nDimensions
+        assert self.nDimensions > 0, "Number of dimensions must be positive"
+
         # Core box properties
         self.boxStr = "NoBox"
         self.forceERecompute = False
@@ -39,9 +44,6 @@ class SimpleBox(SimBox):
         self.maxdr2 = 0.0
         self.largestdr = 0.0
         self.rebuildsensitivity = 0.5
-        
-        # Store molecular data reference
-        self.nMolTypes = len(MolData) if MolData else 0
         
         # Arrays for tracking molecular structure (to be allocated)
         self.atoms = None
@@ -67,7 +69,7 @@ class SimpleBox(SimBox):
 
         
         # Chemical potentials
-        self.chempot = None
+        self.chempot = np.zeros(self.nMolTypes, dtype=dp)
         
         # Temporary arrays
         self.newpos = None
@@ -90,25 +92,11 @@ class SimpleBox(SimBox):
         self.NMolMax = np.array(NMolMax, dtype=int)
         self.NMol = np.array(NMol, dtype=int)
         
-        # Calculate maximum atoms and molecules
-        self.nMaxAtoms = 0
-        self.maxMol = 0
-        
-        for iType in range(self.nMolTypes):
-            self.nMaxAtoms += self.NMolMax[iType] * self.MolData[iType]['nAtoms']
-            self.maxMol += self.NMolMax[iType]
-        
-        # Calculate current atoms
-        self.nAtoms = 0
-        for iType in range(self.nMolTypes):
-            self.nAtoms += self.NMol[iType] * self.MolData[iType]['nAtoms']
         
         # Allocate position and energy arrays
         self.atoms = np.zeros((self.nMaxAtoms, nDimensions), dtype=dp)
         self.dr = np.zeros((self.nMaxAtoms, nDimensions), dtype=dp)
         self.drsq = np.zeros(self.nMaxAtoms, dtype=dp)
-        self.ETable = np.zeros(self.nMaxAtoms, dtype=dp)
-        self.dETable = np.zeros(self.nMaxAtoms, dtype=dp)
         
         # Allocate indexing arrays
         self.AtomType = np.zeros(self.nMaxAtoms, dtype=int)
@@ -122,27 +110,10 @@ class SimpleBox(SimBox):
         self.MolEndIndx = np.zeros(self.maxMol, dtype=int)
         self.centerMass = np.zeros((self.maxMol, nDimensions), dtype=dp)
         
-        # Allocate type arrays
-        self.TypeFirst = np.zeros(self.nMolTypes, dtype=int)
-        self.TypeLast = np.zeros(self.nMolTypes, dtype=int)
-        self.TypeMolFirst = np.zeros(self.nMolTypes, dtype=int)
-        self.TypeMolLast = np.zeros(self.nMolTypes, dtype=int)
         
-        # Allocate global index array
-        maxSingleMol = np.max(self.NMolMax)
-        self.MolGlobalIndx = np.zeros((self.nMolTypes, maxSingleMol), dtype=int)
-        
-        # Allocate chemical potential array
-        self.chempot = np.zeros(self.nMolTypes, dtype=dp)
-        
-        # Allocate temporary arrays
-        mostAtoms = max([mol['nAtoms'] for mol in self.MolData]) if self.MolData else 10
-        self.newpos = np.zeros((mostAtoms, nDimensions), dtype=dp)
-        self.temppos = np.zeros((mostAtoms, nDimensions), dtype=dp)
+        self.hasBoundary = False  # No boundary conditions by default
         
         # Build indexing arrays
-        self._build_indexing_arrays()
-        
         print(f"SimpleBox initialized with {self.nMaxAtoms} max atoms, {self.maxMol} max molecules")
         
     def _build_indexing_arrays(self):
@@ -162,15 +133,7 @@ class SimpleBox(SimBox):
         Corresponds to SimpleBox_Boundary
         Default boundary implementation (no boundary conditions)
         """
-        if isinstance(rx, (list, np.ndarray)) and ry is None and rz is None:
-            return np.array(rx)  # Return unchanged
-        
-        if ry is None and rz is None:
-            return rx
-        elif rz is None:
-            return rx, ry
-        else:
-            return rx, ry, rz
+        return rx
     
     def compute_energy(self, tablecheck=False):
         """
