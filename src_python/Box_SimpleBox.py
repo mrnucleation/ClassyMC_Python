@@ -249,24 +249,7 @@ class SimpleBox(SimBox):
                     E_Intra += E_Torsion
         
         return E_Intra, True
-    
-    # -------------------------------------------------------------------------
-    def _compute_bond_energy(self, bond, coords):
-        """Compute energy for a bond interaction"""
-        # Placeholder - would call appropriate bond force field
-        return 0.0, True
-    
-    # -------------------------------------------------------------------------
-    def _compute_angle_energy(self, angle, coords):
-        """Compute energy for an angle interaction"""
-        # Placeholder - would call appropriate angle force field
-        return 0.0, True
-    
-    # -------------------------------------------------------------------------
-    def _compute_torsion_energy(self, torsion, coords):
-        """Compute energy for a torsion interaction"""
-        # Placeholder - would call appropriate torsion force field
-        return 0.0, True
+
     
     # -------------------------------------------------------------------------
     def compute_energy_delta(self, disp, templist=None, tempnnei=None, computeintra=None):
@@ -690,4 +673,63 @@ class SimpleBox(SimBox):
         Convert reduced coordinates to real coordinates (default: no transformation)
         """
         return np.array(reduced_coords)
+    
+    # -------------------------------------------------------------------------
+    def pick_random_molecule(self):
+        """
+        Randomly pick one molecule from the simulation box.
+        
+        This function implements the requested functionality to randomly select
+        a single molecule from the available molecules in the box. It uses
+        uniform random selection and returns comprehensive molecule information.
+        
+        Returns:
+            dict: Dictionary containing molecule information with keys:
+                - 'mol_index': Global molecule index (0-based)
+                - 'mol_type': Molecule type index
+                - 'mol_sub_index': Molecule sub-index within its type
+                - 'atom_start': Starting atom index
+                - 'atom_end': Ending atom index
+                - 'n_atoms': Number of atoms in molecule
+                - 'coordinates': Array of atom coordinates
+                - 'center_of_mass': Center of mass coordinates
+        """
+        import random
+        
+        # Check if there are any molecules in the box
+        if self.nMolTotal <= 0:
+            raise ValueError("Cannot pick random molecule: box is empty")
+        
+        # Generate random molecule index (0 to nMolTotal-1)
+        mol_global_index = random.randint(0, self.nMolTotal - 1)
+        
+        # Get molecule data using existing get_mol_data method
+        mol_data = self.get_mol_data(mol_global_index)
+        
+        # Get additional information
+        mol_start = mol_data['molStart']
+        mol_type = mol_data['molType']
+        
+        # Find molecule sub-index within its type
+        mol_sub_index = -1
+        for i in range(self.NMol[mol_type]):
+            if self.MolGlobalIndx[mol_type, i] == mol_global_index:
+                mol_sub_index = i
+                break
+        
+        # Get coordinates and center of mass
+        coordinates = self.get_coordinates(slice_range=(mol_start, mol_data['molEnd']))
+        center_of_mass = self.centerMass[mol_global_index, :] if self.centerMass is not None else None
+        
+        # Return comprehensive molecule information
+        return {
+            'mol_index': mol_global_index,
+            'mol_type': mol_type,
+            'mol_sub_index': mol_sub_index,
+            'atom_start': mol_start,
+            'atom_end': mol_data['molEnd'],
+            'n_atoms': mol_data['nAtoms'],
+            'coordinates': coordinates,
+            'center_of_mass': center_of_mass
+        }
 # =============================================================================

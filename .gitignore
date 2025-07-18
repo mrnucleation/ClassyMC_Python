@@ -49,3 +49,4 @@ tests/__pycache__/test_cubic_box.cpython-310-pytest-8.4.1.pyc
 tests/__pycache__/test_lj_cut.cpython-310-pytest-8.4.1.pyc
 tests/__pycache__/test_MC_Move_MolTranslation_simple.cpython-310-pytest-8.4.1.pyc
 tests/__pycache__/test_MC_Move_MolTranslation.cpython-310-pytest-8.4.1.pyc
+src_python/__pycache__/CoordinateTypes.cpython-310.pyc

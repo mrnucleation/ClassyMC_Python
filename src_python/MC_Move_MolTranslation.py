@@ -3,6 +3,7 @@ import numpy as np
 from random import random
 from .VarPrecision import dp
 from .Box_SimpleBox import SimpleBox
+from .CoordinateTypes import Displacement
 import math
 
 class MolTranslate(MCMove):
@@ -27,39 +28,21 @@ class MolTranslate(MCMove):
         self.constrainrej = 0
         self.detailedrej = 0
 
-        # --- "Allocatable" arrays, initialized below ---
-        self.boxatmps = np.array([], dtype=dp)
-        self.boxaccpt = np.array([], dtype=dp)
-        self.boxlimit = np.array([], dtype=dp)
-        self.boxtargAccpt = np.array([], dtype=dp)
-        self.boxmax_dist = np.array([], dtype=dp)
-        self.disp = []  # Will be a list of Displacement objects
-
-        # --- Constructor logic from MolTrans_Constructor ---
-        self._initialize_arrays()
-
-    def _initialize_arrays(self):
-        """
-        Initializes arrays and other variables, equivalent to the Fortran
-        `MolTrans_Constructor` subroutine.
-        """
         n_boxes = len(BoxArray)
-        if self.boxProb.size == 0:
+        
+        # Initialize box probabilities
+        if len(self.boxProb) == 0:
             self.boxProb = np.full(n_boxes, 1.0 / n_boxes, dtype=dp)
 
+        # Initialize box-specific arrays
         self.boxatmps = np.full(n_boxes, 1e-50, dtype=dp)
         self.boxaccpt = np.zeros(n_boxes, dtype=dp)
-
         self.boxlimit = np.full(n_boxes, self.limit, dtype=dp)
         self.boxmax_dist = np.full(n_boxes, self.max_dist, dtype=dp)
         self.boxtargAccpt = np.full(n_boxes, self.targAccpt, dtype=dp)
 
-        max_atoms = 0
-        if nMolTypes > 0:
-            max_atoms = max(info.nAtoms for info in MolData.values())
-
-        self.disp = [Displacement() for _ in range(max_atoms)]
-        self.CreateTempArray(max_atoms)
+        # Initialize displacement array (will be resized as needed)
+        self.disp = []
 
     def full_move(self, trial_box: SimpleBox):
         """
@@ -72,8 +55,8 @@ class MolTranslate(MCMove):
         self.boxatmps[box_idx] += 1.0
 
         # --- Propose move ---
-        raw_indx = math.floor(trial_box.nMolTotal * random() + 1.0)
-        n_move = FindMolecule(trial_box, raw_indx)
+        raw_indx = 
+        n_move = self.find_molecule(trial_box, raw_indx)
         mol_start, mol_end, mol_type = trial_box.GetMolData(n_move)
         mol_start_idx = mol_start - 1
 
@@ -81,15 +64,23 @@ class MolTranslate(MCMove):
         dy = self.boxmax_dist[box_idx] * (2.0 * random() - 1.0)
         dz = self.boxmax_dist[box_idx] * (2.0 * random() - 1.0)
 
-        n_atoms = MolData[mol_type].nAtoms
+        n_atoms = trial_box.GetMolTypeInfo(mol_type).nAtoms
+        
+        # Ensure disp array is large enough
+        if len(self.disp) < n_atoms:
+            self.disp = [Displacement(0, 0, 0, np.zeros(3, dtype=dp)) for _ in range(n_atoms)]
+        
+        # Create displacements for each atom in the molecule
         for i_atom in range(n_atoms):
             atom_idx = mol_start_idx + i_atom
+            current_pos = trial_box.atoms[:, atom_idx]
+            new_pos = current_pos + np.array([dx, dy, dz], dtype=dp)
+            
             d = self.disp[i_atom]
-            d.molType, d.molIndx, d.atmIndx = mol_type, n_move, atom_idx + 1
-            d.x_new = trial_box.atoms[0, atom_idx] + dx
-            d.y_new = trial_box.atoms[1, atom_idx] + dy
-            d.z_new = trial_box.atoms[2, atom_idx] + dz
-            d.newlist, d.listIndex = False, i_atom + 1
+            d.molType = mol_type
+            d.molIndx = n_move
+            d.atmIndx = atom_idx + 1
+            d.X = new_pos
 
         # --- Check constraints and calculate energy ---
         active_disp = self.disp[:n_atoms]
@@ -109,7 +100,7 @@ class MolTranslate(MCMove):
             return False
 
         # --- Accept/Reject ---
-        accept = sampling.MakeDecision(trial_box, e_diff, active_disp, inProb=1.0)
+        accept = trial_box.MakeDecision(e_diff, active_disp, inProb=1.0)
 
         if accept:
             self.accpt += 1.0
@@ -150,7 +141,7 @@ class MolTranslate(MCMove):
         print(f"Molecule Translation Moves Accepted:  {round(self.accpt):15d}", file=nout)
         print(f"Molecule Translation Moves Attempted: {round(self.atmps):15d}", file=nout)
         
-        accpt_rate = self.GetAcceptRate()
+        accpt_rate = self.get_accept_rate()
         print(f"Molecule Translation Acceptance Rate: {accpt_rate:15.8f}", file=nout)
         
         if self.tuneMax:
@@ -198,41 +189,3 @@ class MolTranslate(MCMove):
         except (ValueError, IndexError):
             return -1  # Error parsing value
         return 0
-
-# =============================================================================
-# Example Usage
-# =============================================================================
-if __name__ == '__main__':
-    # 1. Setup the mock simulation environment
-    box1_atoms = np.random.rand(3, 200) * 10
-    box2_atoms = np.random.rand(3, 300) * 10
-    box1 = SimpleBox(boxID=1, nMolTotal=100, atoms=box1_atoms)
-    box2 = SimpleBox(boxID=2, nMolTotal=150, atoms=box2_atoms)
-    BoxArray = [BoxWrapper(box1), BoxWrapper(box2)]
-    MolData = {1: MolInfo(nAtoms=2)}
-    nMolTypes = 1
-
-    # 2. Create an instance of the move
-    mol_translate_move = MolTranslate()
-
-    # 3. Process some IO commands (mimicking input file parsing)
-    mol_translate_move.process_io("MC_MOVE MOLTRANS TRANSLATE tunemax true")
-    mol_translate_move.process_io("MC_MOVE MOLTRANS TRANSLATE maxdisplace 0.1")
-    mol_translate_move.process_io("MC_MOVE MOLTRANS TRANSLATE updatefreq 50")
-    print(f"Initial max_dist set by IO: {mol_translate_move.max_dist}")
-    print(f"Initial boxmax_dist: {mol_translate_move.boxmax_dist}")
-    print("-" * 20)
-
-    # 4. Run a mock simulation loop
-    mol_translate_move.prologue()
-    for i in range(1, 1001):
-        # In a real simulation, a box would be chosen based on boxProb
-        chosen_box = np.random.choice(BoxArray, p=mol_translate_move.boxProb).box
-        mol_translate_move.full_move(chosen_box)
-        
-        if i % mol_translate_move.maintFreq == 0:
-            mol_translate_move.maintenance()
-            mol_translate_move.update()
-
-    print("-" * 20)
-    mol_translate_move.epilogue()
