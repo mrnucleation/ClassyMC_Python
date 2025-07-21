@@ -9,20 +9,24 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 class Molecule_Topo:
     #--------------------------------
     def __init__(self, json_data):
-        self.name = json_data['name']
+        #self.name = json_data['name']
         self.atoms = json_data['atoms']
-        self.atomtypes = json_data['atomtypes']
-        if 'bonds' in json_data and len(self.atoms) > 1:
-            self.bonds = json_data['bonds']
+        
+        for atom in self.atoms:
+            assert len(atom) == 2, "Each atom must have an element ID, type"
+        
+        
+        # Initialize bonds as empty list if not present in json_data
+        self.bonds = json_data.get('bonds', [])
+        if len(self.atoms) > 1 and self.bonds:
             # Ensure bonds are tuples of atom indices
             for i in range(len(self.bonds)):
                 if isinstance(self.bonds[i], list):
                     self.bonds[i] = tuple(self.bonds[i])
         self.angles = []
-        self.torsion = [] 
-        
-           
-            
+        self.torsion = []
+
+
         self.create_graph()
         self.auto_generate_angles_and_dihedrals()
         assert self.valid_bonds() == True, "Bonds are not valid"
@@ -135,8 +139,19 @@ class Molecule_Topo:
             G.add_edge(bond[0][0], bond[0][1])
         self.graph = G
         
-        #Check if the graph is connected
-        assert nx.is_connected(G), "Molecule has disonnected atoms, all atoms must be part of a bond"
+        # If there is only one atom, no need to check the graph
+        if len(self.atoms) == 1:
+            return 
+        
+        if len(self.graph.nodes()) != len(self.atoms):
+            raise ValueError("Number of atoms in the graph does not match the number of atoms in the molecule definition.")
+        
+        if len(self.graph.edges()) != len(self.bonds):
+            raise ValueError("Number of bonds in the graph does not match the number of bonds in the molecule definition.")
+        
+        if not nx.is_connected(G):
+            raise ValueError("Molecule graph is not connected. All atoms must be part of a bond.")
+        
  
     #--------------------------------
     def find_angles(self):
@@ -217,8 +232,18 @@ class Molecule_Type:
     """
      A larger scale
     """
-    def __init__(self, topo_file, atomtypes, bondtype=None, angletype=None, torsiontype=None):
-        self.topo = Molecule_Topo(topo_file)
+    def __init__(self, topo_info, atomtypes, bondtype=None, angletype=None, torsiontype=None):
+        if isinstance(topo_info, str):
+            if not topo_info.endswith('.json'):
+                raise ValueError("Topology file must be a JSON file")
+            # Open the topology file and read the JSON data
+            with open(topo_info, 'r') as f:
+                topo_data = json.load(f)
+            self.topo = Molecule_Topo(topo_data)
+        elif isinstance(topo_info, dict):
+            self.topo = Molecule_Topo(topo_info)
+        else:
+            raise TypeError("Invalid topo_info type")
 
         self.n_atoms = len(self.topo.atoms)
         self.n_bonds = len(self.topo.bonds)
@@ -227,8 +252,7 @@ class Molecule_Type:
         
         # Set default 
         self.atomtypes = atomtypes
-        
-        assert len(self.atomtypes) == self.n_atoms, "Atom types must match number of atoms"
+        assert isinstance(self.atomtypes, list), "atomtypes must be a list"
 
         self.bondtype = bondtype if bondtype is not None else [None] * self.n_bonds
         self.angletype = angletype if angletype is not None else [None] * self.n_angles
@@ -256,87 +280,4 @@ class Molecule_Type:
         '''
         self.topo.torsion_ff_type(torsion_id, torsion_type)
         self.torsiontype[torsion_id] = torsion_type
-        
-#===============================================
-class Molecule:
-    def __init__(self, 
-                 moltype_object:Molecule_Type, 
-                 position_array:np.ndarray):
-        self.moltype = moltype_object
-        self.position_array = position_array
-        
-        assert len(self.position_array) == len(self.moltype.topo.atoms), "Position array must be the same length as the number of atoms"
-        assert len(self.position_array.shape) == 2, "Position array must be a 2D array"
-        assert self.position_array.shape[0] == len(self.moltype.topo.atoms), "Position array must be the same length as the number of atoms"
-        
-        # Additional molecule properties
-        self.mol_id = None  # Will be set when added to box
-        self.box_id = None  # Will be set when added to box
-        self.energy = 0.0   # Total energy of molecule
-        self.intra_energy = 0.0  # Intramolecular energy
-        self.inter_energy = 0.0  # Intermolecular energy
-        
-    #--------------------------------
-    def get_moltype(self):
-        return self.moltype
-    
-    #--------------------------------
-    def get_positions(self):
-        """Get the current positions of all atoms in the molecule"""
-        return self.position_array
-    
-    #--------------------------------
-    def set_positions(self, new_positions):
-        """Set new positions for all atoms in the molecule"""
-        assert len(new_positions) == len(self.position_array), "New positions must match atom count"
-        self.position_array = new_positions
-    
-    #--------------------------------
-    def get_atom_count(self):
-        """Get the number of atoms in this molecule"""
-        return len(self.position_array)
-    
-    #--------------------------------
-    def get_bond_count(self):
-        """Get the number of bonds in this molecule"""
-        return self.moltype.n_bonds
-    
-    #--------------------------------
-    def get_angle_count(self):
-        """Get the number of angles in this molecule"""
-        return self.moltype.n_angles
-    
-    #--------------------------------
-    def get_torsion_count(self):
-        """Get the number of torsions in this molecule"""
-        return self.moltype.n_torsions
-    
-    #--------------------------------
-    def compute_center_of_mass(self):
-        """Compute the center of mass of the molecule"""
-        if len(self.position_array) == 0:
-            return np.zeros(3)
-        
-        # For now, assume equal mass for all atoms
-        # In a real implementation, this would use actual atomic masses
-        return np.mean(self.position_array, axis=0)
-    
-    #--------------------------------
-    def to_dict(self):
-        """Convert molecule to dictionary representation"""
-        return {
-            'moltype': self.moltype.topo.name,
-            'positions': self.position_array.tolist(),
-            'mol_id': self.mol_id,
-            'box_id': self.box_id,
-            'energy': self.energy
-        }
-    
-    #--------------------------------
-    def __str__(self):
-        """String representation of the molecule"""
-        return f"Molecule(type={self.moltype.topo.name}, atoms={len(self.position_array)}, id={self.mol_id})"
-    
-    #--------------------------------
-    def __repr__(self):
-        return self.__str__()
+#=================================================

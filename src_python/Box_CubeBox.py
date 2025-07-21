@@ -31,22 +31,21 @@ class CubeBox(SimpleBox):
         self.boxL = 0.0      # Box length
         self.boxL2 = 0.0     # Half box length (for efficiency)
         self.boxStr = "Cube"
-        
-    def load_dimension(self, line):
+    #--------------------------------------------------------------------------   
+    def load_dimension(self, boxlengths: list[float]) -> bool:
         """
         Corresponds to Cube_LoadDimension
         Parse box length from input line
         """
         try:
-            parts = line.split()
-            if len(parts) >= 2:
-                self.boxL = float(parts[1])
+            if len(boxlengths) >= 2:
+                self.boxL = np.full(float(boxlengths[0]), shape=(self.nDimensions), dtype=dp)
                 self.boxL2 = self.boxL / 2.0
-                return 0
+                return True
             else:
-                return -1
+                return False
         except (ValueError, IndexError):
-            return -1
+            return False
     
     def get_dimensions(self):
         """

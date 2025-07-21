@@ -27,6 +27,7 @@ class SimpleBox(SimBox):
         super().__init__()
 
         self.MolData = molData
+        assert isinstance(self.MolData, list), "Molecular data must be a list of Molecule_Type objects"
         self.nMolTypes = len(molData)
         self.nDimensions = nDimensions
         assert self.nDimensions > 0, "Number of dimensions must be positive"
@@ -86,12 +87,17 @@ class SimpleBox(SimBox):
         self.NeighList = []
         
 
-        if NMolMin is None or NMolMax is None or NMol is None:
-            raise ValueError("Molecule bounds must be defined prior to box initialization!")
-        
-        self.NMolMin = np.array(NMolMin, dtype=int)
-        self.NMolMax = np.array(NMolMax, dtype=int)
-        self.NMol = np.array(NMol, dtype=int)
+        if NMolMin is None:
+            NMolMin = [0] * self.nMolTypes
+        else:
+            self.NMolMin = np.array(NMolMin, dtype=int)
+            
+        if NMolMax is None:
+            NMolMax = [1000] * self.nMolTypes
+        else:
+            self.NMolMax = np.array(NMolMax, dtype=int)
+        if NMol is None:
+            NMol = [0] * self.nMolTypes
         
         
         # Allocate position and energy arrays
@@ -125,12 +131,12 @@ class SimpleBox(SimBox):
 
     
     # -------------------------------------------------------------------------
-    def load_dimension(self, line):
+    def load_dimension(self, boxlengths: List[float]) -> bool:
         """
         Corresponds to Simplebox_LoadDimension
         Default implementation for boxes without specific dimensions
         """
-        return 0  # Success by default for simple box
+        return True
     
     # -------------------------------------------------------------------------
     def boundary(self, rx):
