@@ -13,6 +13,7 @@ This is the main orchestrator for forcefield file processing.
 """
 
 import sys
+import json
 from typing import Tuple, Dict, List, Type, Optional, Any, Union
 from .VarPrecision import dp
 
@@ -67,256 +68,40 @@ def LoadFile(filename: str) -> Tuple[List[str], List[int]]:
         return [], []
 
 # =============================================================================
-# Data Structures for Forcefield Components
-# =============================================================================
-
-class AtomData:
-    """Atom type data"""
-    def __init__(self, symbol: str = "", mass: float = 0.0):
-        self.symbol = symbol
-        self.mass = mass
-    
-    def __str__(self):
-        return f"Atom({self.symbol}, mass={self.mass})"
-
-class BondData:
-    """Bond type data"""
-    def __init__(self):
-        self.bond_ff = None
-        self.bond_type = -1
-        self.mem1 = -1
-        self.mem2 = -1
-    
-    def __str__(self):
-        return f"Bond(type={self.bond_type}, {self.mem1}-{self.mem2})"
-
-class AngleData:
-    """Angle type data"""
-    def __init__(self):
-        self.angle_ff = None
-        self.angle_type = -1
-        self.mem1 = -1
-        self.mem2 = -1
-        self.mem3 = -1
-    
-    def __str__(self):
-        return f"Angle(type={self.angle_type}, {self.mem1}-{self.mem2}-{self.mem3})"
-
-class TorsionData:
-    """Torsion type data"""
-    def __init__(self):
-        self.torsion_ff = None
-        self.torsion_type = -1
-        self.mem1 = -1
-        self.mem2 = -1
-        self.mem3 = -1
-        self.mem4 = -1
-    
-    def __str__(self):
-        return f"Torsion(type={self.torsion_type}, {self.mem1}-{self.mem2}-{self.mem3}-{self.mem4})"
-
-class MiscData:
-    """Miscellaneous intramolecular interaction data"""
-    def __init__(self):
-        self.misc_ff = None
-        self.misc_type = ""
-    
-    def __str__(self):
-        return f"Misc({self.misc_type})"
-
-class MoleculeData:
-    """Molecule definition data"""
-    def __init__(self):
-        self.n_atoms = 0
-        self.n_bonds = 0
-        self.n_angles = 0
-        self.n_tors = 0
-        self.n_misc = 0
-        
-        self.atom_type = []
-        self.bond = []
-        self.angle = []
-        self.torsion = []
-        self.misc_data = []
-        
-        # Connectivity arrays
-        self.n_atm_bonds = []
-        self.atm_bonds = []
-        self.n_atm_angles = []
-        self.atm_angles = []
-        self.n_atm_torsions = []
-        self.atm_torsions = []
-        
-        self.regrowth_type = None
-    
-    def __str__(self):
-        return f"Molecule(atoms={self.n_atoms}, bonds={self.n_bonds}, angles={self.n_angles}, torsions={self.n_tors})"
-
-class ForceFieldData:
-    """Global forcefield data structure"""
-    def __init__(self):
-        self.n_atom_types = 0
-        self.n_bond_types = 0
-        self.n_angle_types = 0
-        self.n_torsion_types = 0
-        self.n_mol_types = 0
-        self.n_force_fields = 0
-        
-        self.atom_data = []
-        self.bond_data = []
-        self.angle_data = []
-        self.torsion_data = []
-        self.mol_data = []
-        self.energy_calculator = []
-        
-        # Units
-        self.eng_unit = 1.0
-        self.len_unit = 1.0
-        self.ang_unit = 1.0
-
-# Global forcefield data instance
-_forcefield_data = ForceFieldData()
-
-# =============================================================================
 # Main Forcefield File Reading Functions
 # =============================================================================
 
-def script_read_field_file(filename: str) -> Tuple[ForceFieldData, int]:
-    """
-    Corresponds to Script_ReadFieldFile in Fortran.
-    Read and process a complete forcefield file.
-    
-    Args:
-        filename: Path to forcefield file
-        
-    Returns:
-        tuple: (forcefield_data, status_code)
-               status_code: 0 = success, negative = error
-    """
-    global _forcefield_data
-    
-    print(f"Reading forcefield file: {filename}")
-    
-    # Load the file
-    line_store, line_numbers = LoadFile(filename)
-    if not line_store:
-        return _forcefield_data, -1
-    
-    n_lines = len(line_store)
-    line_buffer = 0
-    
-    try:
-        i_line = 0
-        while i_line < n_lines:
-            if line_buffer > 0:
-                line_buffer -= 1
-                i_line += 1
-                continue
-            
-            line = line_store[i_line].strip()
-            if not line or line.startswith('#'):
-                i_line += 1
-                continue
-            
-            command = GetXCommand(line, 1).lower()
-            
-            if not command:
-                i_line += 1
-                continue
-            
-            print(f"Processing command: {command}")
-            
-            # Process different sections
-            if command == "forcefield":
-                status = process_forcefield_section(line_store, i_line, line_buffer)
-                if status < 0:
-                    return _forcefield_data, status
-                    
-            elif command == "forcefieldtype":
-                line_buffer = FindCommandBlock(line_store, i_line, "end_forcefieldtype") - i_line - 1
-                status = process_forcefield_type_section(line_store, i_line, line_buffer)
-                if status < 0:
-                    return _forcefield_data, status
-                    
-            elif command == "atomdef":
-                line_buffer = FindCommandBlock(line_store, i_line, "end_atomdef") - i_line - 1
-                status = process_atom_def_section(line_store, i_line, line_buffer)
-                if status < 0:
-                    return _forcefield_data, status
-                    
-            elif command == "bonddef":
-                line_buffer = FindCommandBlock(line_store, i_line, "end_bonddef") - i_line - 1
-                status = process_bond_def_section(line_store, i_line, line_buffer)
-                if status < 0:
-                    return _forcefield_data, status
-                    
-            elif command == "angledef":
-                line_buffer = FindCommandBlock(line_store, i_line, "end_angledef") - i_line - 1
-                status = process_angle_def_section(line_store, i_line, line_buffer)
-                if status < 0:
-                    return _forcefield_data, status
-                    
-            elif command == "torsiondef":
-                line_buffer = FindCommandBlock(line_store, i_line, "end_torsiondef") - i_line - 1
-                status = process_torsion_def_section(line_store, i_line, line_buffer)
-                if status < 0:
-                    return _forcefield_data, status
-                    
-            elif command == "molecule":
-                line_buffer = FindCommandBlock(line_store, i_line, "end_molecule") - i_line - 1
-                status = process_molecule_section(line_store, i_line, line_buffer)
-                if status < 0:
-                    return _forcefield_data, status
-                    
-            elif command == "moleculetypes":
-                status = process_molecule_types_section(line_store[i_line])
-                if status < 0:
-                    return _forcefield_data, status
-                    
-            elif command == "units":
-                status = process_units_section(line_store[i_line])
-                if status < 0:
-                    return _forcefield_data, status
-                    
-            else:
-                print(f"WARNING: Unknown command '{command}' on line {line_numbers[i_line]}", file=sys.stderr)
-                print(f"Line: {line}", file=sys.stderr)
-            
-            i_line += 1
-        
-        print("Successfully processed forcefield file")
-        return _forcefield_data, 0
-        
-    except Exception as e:
-        print(f"ERROR: Failed to process forcefield file: {e}", file=sys.stderr)
-        return _forcefield_data, -1
+from .Molecule_Definition import Molecule_Type
 
-def process_forcefield_section(line_store: List[str], i_line: int, line_buffer: int) -> int:
-    """Process forcefield parameter section"""
+def script_load_molecule(filename: str, atomtypes):
+    json_data = {}
     try:
-        val = GetXCommand(line_store[i_line], 2)
-        ff_num = int(val)
-        
-        line_buffer = FindCommandBlock(line_store, i_line, "end_forcefield") - i_line - 1
-        
-        if not _forcefield_data.energy_calculator:
-            print("ERROR: Forcefield type must be defined before parameters can be modified", file=sys.stderr)
-            return -1
-        
-        # Process parameters for specific forcefield
-        for i in range(1, line_buffer + 1):
-            cur_line = i_line + i
-            if cur_line < len(line_store):
-                # Call ProcessIO on the energy calculator
-                if ff_num <= len(_forcefield_data.energy_calculator):
-                    if hasattr(_forcefield_data.energy_calculator[ff_num-1], 'process_io'):
-                        _forcefield_data.energy_calculator[ff_num-1].process_io(line_store[cur_line])
-        
-        return 0
-        
-    except (ValueError, IndexError) as e:
-        print(f"ERROR: Failed to process forcefield section: {e}", file=sys.stderr)
-        return -1
+        with open(filename, 'r') as f:
+            json_data = json.load(f)
+    except FileNotFoundError:
+        print(f"ERROR: Could not find molecule file: {filename}", file=sys.stderr)
+    except json.JSONDecodeError:
+        print(f"ERROR: Could not parse molecule file {filename}: {e}", file=sys.stderr)
+    topofile = json_data.get("topology_file", "")
+    if not topofile:
+        print(f"ERROR: No topology file specified in {filename}", file=sys.stderr)
+        return None
+    
+    newMolecule = Molecule_Type(topo_file=topofile)
+
+def load_atomtypes(filename: str) -> List[str]:
+    """Load atom types from a file"""
+    atomtypes = []
+    try:
+        with open(filename, 'r') as f:
+            for line in f:
+                parts = line.strip().split()
+                if len(parts) >= 2:
+                    atomtypes.append(parts[0])  # Assuming first part is the atom type
+    except FileNotFoundError:
+        print(f"ERROR: Could not find atom types file: {filename}", file=sys.stderr)
+    return atomtypes
+
 
 def process_forcefield_type_section(line_store: List[str], i_line: int, line_buffer: int) -> int:
     """Process forcefield type definitions"""
@@ -947,4 +732,4 @@ if __name__ == "__main__":
             AtomData("C", 12.01),
             AtomData("H", 1.008)
         ]
-        validate_forcefield_data() 
+        validate_forcefield_data()

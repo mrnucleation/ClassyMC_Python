@@ -55,32 +55,17 @@ class MolTranslate(MCMove):
         self.boxatmps[box_idx] += 1.0
 
         # --- Propose move ---
-        raw_indx = 
-        n_move = self.find_molecule(trial_box, raw_indx)
-        mol_start, mol_end, mol_type = trial_box.GetMolData(n_move)
-        mol_start_idx = mol_start - 1
 
-        dx = self.boxmax_dist[box_idx] * (2.0 * random() - 1.0)
-        dy = self.boxmax_dist[box_idx] * (2.0 * random() - 1.0)
-        dz = self.boxmax_dist[box_idx] * (2.0 * random() - 1.0)
+        dx = self.boxmax_dist[box_idx] * np.random.uniform(-1.0, 1.0)
+        
+        x_new = 
 
         n_atoms = trial_box.GetMolTypeInfo(mol_type).nAtoms
         
-        # Ensure disp array is large enough
-        if len(self.disp) < n_atoms:
-            self.disp = [Displacement(0, 0, 0, np.zeros(3, dtype=dp)) for _ in range(n_atoms)]
-        
         # Create displacements for each atom in the molecule
         for i_atom in range(n_atoms):
-            atom_idx = mol_start_idx + i_atom
-            current_pos = trial_box.atoms[:, atom_idx]
-            new_pos = current_pos + np.array([dx, dy, dz], dtype=dp)
-            
-            d = self.disp[i_atom]
-            d.molType = mol_type
-            d.molIndx = n_move
-            d.atmIndx = atom_idx + 1
-            d.X = new_pos
+            self.disp.append(Displacement(dx, 0.0, 0.0))
+
 
         # --- Check constraints and calculate energy ---
         active_disp = self.disp[:n_atoms]
@@ -168,7 +153,9 @@ class MolTranslate(MCMove):
         Returns 0 for success, -1 for failure.
         """
         parts = line.strip().lower().split()
-        if len(parts) < 5: return -1
+        if len(parts) < 5:
+            print(f"Invalid input line: {line.strip()}")
+            raise IOError("Invalid input line format")
 
         command, value_str = parts[3], parts[4]
         try:

@@ -8,33 +8,27 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 #Molecule class
 class Molecule_Topo:
     #--------------------------------
-    def __init__(self, json_file):
-        with open(json_file, 'r') as f:
-            data = json.load(f)
-        self.name = data['name']
-        self.atoms = data['atoms']
-        self.atomtypes = data['atomtypes']
-        if 'bonds' in data:
-            self.bonds = data['bonds']
-        else:
-            self.bonds = []
-        if 'angles' in data:
-            self.angles = data['angles']
-        else:
-            self.angles = []
-        if 'torsion' in data:
-            self.torsion = data['torsion']
-        else:
-            self.torsion = []
-        
+    def __init__(self, json_data):
+        self.name = json_data['name']
+        self.atoms = json_data['atoms']
+        self.atomtypes = json_data['atomtypes']
+        if 'bonds' in json_data and len(self.atoms) > 1:
+            self.bonds = json_data['bonds']
+            # Ensure bonds are tuples of atom indices
+            for i in range(len(self.bonds)):
+                if isinstance(self.bonds[i], list):
+                    self.bonds[i] = tuple(self.bonds[i])
+        self.angles = []
+        self.torsion = [] 
         
            
             
+        self.create_graph()
+        self.auto_generate_angles_and_dihedrals()
         assert self.valid_bonds() == True, "Bonds are not valid"
         assert self.valid_angles() == True, "Angles are not valid"
         assert self.valid_torsional() == True, "Torsional are not valid"
-        self.create_graph()
-    
+   
     #--------------------------------
     def valid_bonds(self):
         '''
@@ -129,16 +123,6 @@ class Molecule_Topo:
                 torsional.append(None)
         return True
     #--------------------------------
-    def bond_ff_type(self, bond_id, bond_type):
-        '''
-         Given when a bond is defined, it will have a type and length associated with it.
-        '''
-        for bond in self.bonds:
-            if bond[0] == bond_id:
-                bond[1] = bond_type
-                return True
-        return False
-    #--------------------------------
     def create_graph(self):
         '''
          Creates a graph of the molecule. This is used in the CBMC and related algorithms to determine 
@@ -153,7 +137,71 @@ class Molecule_Topo:
         
         #Check if the graph is connected
         assert nx.is_connected(G), "Molecule has disonnected atoms, all atoms must be part of a bond"
+ 
+    #--------------------------------
+    def find_angles(self):
+        '''
+        Find all angles in the molecule graph.
+        An angle is defined by three atoms (i, j, k) where i-j and j-k are bonded.
+        Returns list of angles in format [(atom1, atom2, atom3)] where atom2 is the central atom.
+        '''
+        angles = []
+        G = self.graph
         
+        # Find all paths of length 2 (angles)
+        for node in G.nodes():
+            # Get neighbors of the central atom
+            neighbors = list(G.neighbors(node))
+            # For each pair of neighbors, create an angle
+            for i in range(len(neighbors)):
+                for j in range(i + 1, len(neighbors)):
+                    # Sort the outer atoms to ensure consistent ordering
+                    angle_atoms = sorted([neighbors[i], neighbors[j]])
+                    angles.append([angle_atoms[0], node, angle_atoms[1]])
+        
+        return angles
+    
+    #--------------------------------
+    def find_proper_dihedrals(self):
+        '''
+        Find all proper dihedral angles in the molecule graph.
+        A proper dihedral is defined by four atoms (i, j, k, l) where i-j, j-k, and k-l are bonded.
+        Returns list of dihedrals in format [(atom1, atom2, atom3, atom4)].
+        '''
+        dihedrals = []
+        G = self.graph
+        
+        # Find all paths of length 3 (dihedrals)
+        for edge in G.edges():
+            # For each bond (j-k), find paths of length 2 from each end
+            j, k = edge
+            
+            # Get neighbors of j (excluding k)
+            j_neighbors = [n for n in G.neighbors(j) if n != k]
+            # Get neighbors of k (excluding j)
+            k_neighbors = [n for n in G.neighbors(k) if n != j]
+            
+            # Create dihedrals: i-j-k-l where i is neighbor of j, l is neighbor of k
+            for i in j_neighbors:
+                for l in k_neighbors:
+                    # Ensure i and l are different atoms
+                    if i != l:
+                        dihedrals.append([i, j, k, l])
+        
+        return dihedrals
+    
+    #--------------------------------
+    def auto_generate_angles_and_dihedrals(self):
+        '''
+        Automatically generate angles and proper dihedral angles from the graph
+        if they are not provided in the JSON data.
+        '''
+        # Only generate if not already provided
+        if len(self.angles) == 0:
+            self.angles = self.find_angles()
+        
+        if len(self.torsion) == 0:
+            self.torsion = self.find_proper_dihedrals()
     #--------------------------------
     def save_tojson(self, filename):
         '''
@@ -166,18 +214,25 @@ class Molecule_Topo:
     #--------------------------------
 #===============================================
 class Molecule_Type:
-    def __init__(self, topo_file):
+    """
+     A larger scale
+    """
+    def __init__(self, topo_file, atomtypes, bondtype=None, angletype=None, torsiontype=None):
         self.topo = Molecule_Topo(topo_file)
-        self.nbonds = len(self.topo.bonds)
-        self.bondtype = np.zeros(self.nbonds)
-        self.nangles = len(self.topo.angles)
-        self.angletype = np.zeros(self.nangles)
-        self.ntorsions = len(self.topo.torsion)
-        self.torsiontype = np.zeros(self.ntorsions)
+
         self.n_atoms = len(self.topo.atoms)
         self.n_bonds = len(self.topo.bonds)
         self.n_angles = len(self.topo.angles)
         self.n_torsions = len(self.topo.torsion)
+        
+        # Set default 
+        self.atomtypes = atomtypes
+        
+        assert len(self.atomtypes) == self.n_atoms, "Atom types must match number of atoms"
+
+        self.bondtype = bondtype if bondtype is not None else [None] * self.n_bonds
+        self.angletype = angletype if angletype is not None else [None] * self.n_angles
+        self.torsiontype = torsiontype if torsiontype is not None else [None] * self.n_torsions
         
         
     #--------------------------------
