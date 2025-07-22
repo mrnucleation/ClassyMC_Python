@@ -100,24 +100,7 @@ class SimpleBox(SimBox):
             NMol = [0] * self.nMolTypes
         
         
-        # Allocate position and energy arrays
-        self.atoms = np.zeros((self.nMaxAtoms, nDimensions), dtype=dp)
-        self.dr = np.zeros((self.nMaxAtoms, nDimensions), dtype=dp)
-        self.drsq = np.zeros(self.nMaxAtoms, dtype=dp)
-        
-        # Allocate indexing arrays
-        self.AtomType = np.zeros(self.nMaxAtoms, dtype=int)
-        self.MolType = np.zeros(self.nMaxAtoms, dtype=int)
-        self.MolIndx = np.zeros(self.nMaxAtoms, dtype=int)
-        self.MolSubIndx = np.zeros(self.nMaxAtoms, dtype=int)
-        self.AtomSubIndx = np.zeros(self.nMaxAtoms, dtype=int)
-        
         # Allocate molecule arrays
-        self.MolStartIndx = np.zeros(self.maxMol, dtype=int)
-        self.MolEndIndx = np.zeros(self.maxMol, dtype=int)
-        self.centerMass = np.zeros((self.maxMol, nDimensions), dtype=dp)
-        
-        
         self.hasBoundary = False  # No boundary conditions by default
         
         # Build indexing arrays

@@ -34,7 +34,7 @@ def load_coords(coordinatefile, moldata):
                 box.load_dimension([float(dim) for dim in first_line[1:]])
             except ValueError as e:
                 raise ValueError(f"Invalid dimensions in the first line: {e}")
-    box.load_coordinates(lines)
+    box.load_coordinate(lines[1:])
     
     
     return box

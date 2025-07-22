@@ -216,12 +216,52 @@ def main():
         test_simple_box_coordinates()
         test_boundary_conditions()
         test_box_dimensions()
+        test_load_coords()
         
         print("\nAll tests passed!")
         
     except Exception as e:
         print(f"\nTest failed: {e}")
         raise
+
+
+def test_load_coords():
+    """Test load_coords function"""
+    print("Testing load_coords function...")
+    
+    # Create mock molecular data
+    
+    # Create a temporary coordinate file
+    coord_content = "cube 10.0\nNMol 2 3\nNMax 5 5\nNMin 0 0\n1 1 1 1.0 2.0 3.0\n1 1 2 4.0 5.0 6.0\n2 1 1 7.0 8.0 9.0\n2 1 2 10.0 11.0 12.0\n"
+    
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as f:
+        f.write(coord_content)
+        temp_file = f.name
+    
+    try:
+        box = load_coords(temp_file, [LJ_type])
+        
+        # Verify it's a CubeBox
+        assert isinstance(box, CubeBox), f"Expected CubeBox, got {type(box)}"
+        
+        # Check dimensions
+        assert np.all(box.boxL == 10.0), f"Expected boxL=10.0, got {box.boxL[0]}"
+        assert np.all(box.boxL2 == 5.0), f"Expected boxL2=5.0, got {box.boxL2[0]}"
+        
+        # Check coordinates
+        expected_coords = np.array([
+            [1.0, 2.0, 3.0],
+            [4.0, 5.0, 6.0],
+            [7.0, 8.0, 9.0],
+            [10.0, 11.0, 12.0]
+        ])
+        
+        assert np.allclose(box.atoms[:4], expected_coords), "Coordinates don't match expected values"
+        
+        print("✓ load_coords function test passed")
+        
+    finally:
+        os.unlink(temp_file)
 
 if __name__ == "__main__":
     main()
