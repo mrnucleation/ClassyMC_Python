@@ -38,12 +38,9 @@ class CubeBox(SimpleBox):
         Parse box length from input line
         """
         try:
-            if len(boxlengths) >= 2:
-                self.boxL = np.full(float(boxlengths[0]), shape=(self.nDimensions), dtype=dp)
-                self.boxL2 = self.boxL / 2.0
-                return True
-            else:
-                return False
+            self.boxL = np.full(self.nDimensions, boxlengths[0], dtype=dp)
+            self.boxL2 = self.boxL / 2.0
+            return True
         except (ValueError, IndexError):
             return False
     
@@ -226,4 +223,4 @@ class CubeBox(SimpleBox):
             vol_ratio = disp[0].volNew / disp[0].volOld
             self.volume = disp[0].volNew
             self.boxL = self.boxL * (vol_ratio ** (1.0/3.0))
-            self.boxL2 = self.boxL / 2.0 
+            self.boxL2 = self.boxL / 2.0

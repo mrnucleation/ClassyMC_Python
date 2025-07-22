@@ -681,98 +681,92 @@ class SimpleBox(SimBox):
         Returns:
             int: 0 for success, -1 for failure
         """
-        try:
-            if len(lines) < 3:
-                print("Error: Insufficient lines for coordinate loading")
-                return -1
-            
-            # Parse NMol, NMax, NMin lines
-            nmol_line = lines[0].strip().split()
-            nmax_line = lines[1].strip().split()
-            nmin_line = lines[2].strip().split()
-            
-            # Remove the first word (NMol, NMax, NMin) and convert to integers
-            if len(nmol_line) > 1:
-                self.NMol = np.array([int(x) for x in nmol_line[1:]], dtype=int)
-            if len(nmax_line) > 1:
-                self.NMolMax = np.array([int(x) for x in nmax_line[1:]], dtype=int)
-            if len(nmin_line) > 1:
-                self.NMolMin = np.array([int(x) for x in nmin_line[1:]], dtype=int)
-            
-            # Initialize counters
-            current_atom = 0
-            current_mol = 0
-            
-            self.atoms = None
-            self.MolIndx = None
-            self.MolType = None
-            self.MolSubIndx = None
-            self.AtomSubIndx = None
-            
-            
-            newatoms = []
-            newMolType = []
-            newMolIndx = []
-            newMolSubIndx = []
-            newAtomSubIndx = []
-            
-            
-            seen_mol_types = {}
-            
-            
-            # Process coordinate lines (starting from line 3)
-            for line in lines[3:]:
-                line = line.strip()
-                if not line:  # Skip empty lines
-                    continue
-                    
-                parts = line.split()
-                if len(parts) < 3 + self.nDimensions:  # Need at least mol_type, mol_index, atom_index + coords
-                    continue
-                    
-                # Parse the line: mol_type mol_index atom_index coord1 coord2 coord3 ...
-                mol_type = int(parts[0]) - 1  # Convert to 0-based indexing
-                submol_index = int(parts[1]) - 1  # Convert to 0-based indexing
-                atom_index = int(parts[2]) - 1  # Convert to 0-based indexing
-                
-                # Parse coordinates
-                coords = [float(x) for x in parts[3:3+self.nDimensions]]
-                coords = np.array(coords, dtype=dp).reshape(1, -1) 
-                
-                if coords.shape[1] != self.nDimensions:
-                    raise IOError(f"Error: Expected {self.nDimensions} coordinates, got {coords.shape[1]}")
-
-                # Store coordinates
-                newatoms.append(coords)
-                
-                if (mol_type, submol_index) not in seen_mol_types:
-                    seen_mol_types[(mol_type, submol_index)] = current_mol
-                    current_mol += 1
-                
-                newMolType.append(mol_type)
-                newMolIndx.append(seen_mol_types[(mol_type, submol_index)])
-                newMolSubIndx.append(submol_index) 
-                newAtomSubIndx.append(atom_index)
-                
-                
-                current_atom += 1
-            
-            self.atoms = np.vstack(newatoms) 
-            self.MolType = np.array(newMolType, dtype=int)
-            self.MolIndx = np.array(newMolIndx, dtype=int)
-            self.MolSubIndx = np.array(newMolSubIndx, dtype=int)
-            self.AtomSubIndx = np.array(newAtomSubIndx, dtype=int)
-            
-            self.nAtoms = current_atom
-            self.nMolTotal = current_mol
-            
-            print(f"Loaded {self.nAtoms} atoms and {self.nMolTotal} molecules")
-            return 0
-            
-        except Exception as e:
-            print(f"Error loading coordinates: {e}")
+        if len(lines) < 3:
+            print("Error: Insufficient lines for coordinate loading")
             return -1
+        
+        # Parse NMol, NMax, NMin lines
+        nmol_line = lines[0].strip().split()
+        nmax_line = lines[1].strip().split()
+        nmin_line = lines[2].strip().split()
+        
+        # Remove the first word (NMol, NMax, NMin) and convert to integers
+        if len(nmol_line) > 1:
+            self.NMol = np.array([int(x) for x in nmol_line[1:]], dtype=int)
+        if len(nmax_line) > 1:
+            self.NMolMax = np.array([int(x) for x in nmax_line[1:]], dtype=int)
+        if len(nmin_line) > 1:
+            self.NMolMin = np.array([int(x) for x in nmin_line[1:]], dtype=int)
+        
+        # Initialize counters
+        current_atom = 0
+        current_mol = 0
+        
+        self.atoms = None
+        self.MolIndx = None
+        self.MolType = None
+        self.MolSubIndx = None
+        self.AtomSubIndx = None
+        
+        
+        newatoms = []
+        newMolType = []
+        newMolIndx = []
+        newMolSubIndx = []
+        newAtomSubIndx = []
+        
+        
+        seen_mol_types = {}
+        
+        
+        # Process coordinate lines (starting from line 3)
+        for line in lines[3:]:
+            line = line.strip()
+            print(line)
+            if not line:  # Skip empty lines
+                continue
+                
+            parts = line.split()
+            if len(parts) < 3 + self.nDimensions:  # Need at least mol_type, mol_index, atom_index + coords
+                continue
+                
+            # Parse the line: mol_type mol_index atom_index coord1 coord2 coord3 ...
+            mol_type = int(parts[0]) - 1  # Convert to 0-based indexing
+            submol_index = int(parts[1]) - 1  # Convert to 0-based indexing
+            atom_index = int(parts[2]) - 1  # Convert to 0-based indexing
+            
+            # Parse coordinates
+            coords = [float(x) for x in parts[3:3+self.nDimensions]]
+            coords = np.array(coords, dtype=dp).reshape(1, -1) 
+            
+            if coords.shape[1] != self.nDimensions:
+                raise IOError(f"Error: Expected {self.nDimensions} coordinates, got {coords.shape[1]}")
 
+            # Store coordinates
+            newatoms.append(coords)
+            
+            if (mol_type, submol_index) not in seen_mol_types:
+                seen_mol_types[(mol_type, submol_index)] = current_mol
+                current_mol += 1
+            
+            newMolType.append(mol_type)
+            newMolIndx.append(seen_mol_types[(mol_type, submol_index)])
+            newMolSubIndx.append(submol_index) 
+            newAtomSubIndx.append(atom_index)
+            
+            
+            current_atom += 1
+        
+        self.atoms = np.vstack(newatoms) 
+        self.MolType = np.array(newMolType, dtype=int)
+        self.MolIndx = np.array(newMolIndx, dtype=int)
+        self.MolSubIndx = np.array(newMolSubIndx, dtype=int)
+        self.AtomSubIndx = np.array(newAtomSubIndx, dtype=int)
+        
+        self.nAtoms = current_atom
+        self.nMolTotal = current_mol
+        
+        print(f"Loaded {self.nAtoms} atoms and {self.nMolTotal} molecules")
     # -------------------------------------------------------------------------
     def get_reduced_coords(self, real_coords):
         """

@@ -31,11 +31,12 @@ def test_cube_box_load_dimension():
     cube_box = CubeBox([LJ_type])
     
     # Test valid dimension line
-    result = cube_box.load_dimension("boxlength 10.0")
+    result = cube_box.load_dimension([10.0])
+    print(f"Result of loading dimension: {result}")
     assert result, f"Expected True, got {result}"
-    assert cube_box.boxL == 10.0, f"Expected boxL=10.0, got {cube_box.boxL}"
-    assert cube_box.boxL2 == 5.0, f"Expected boxL2=5.0, got {cube_box.boxL2}"
-    
+    assert np.all(cube_box.boxL == 10.0), f"Expected boxL=10.0, got {cube_box.boxL}"
+    assert np.all(cube_box.boxL2 == 5.0), f"Expected boxL2=5.0, got {cube_box.boxL2}"
+
     # Test invalid dimension line
     result = cube_box.load_dimension("boxlength invalid")
     assert result == False, f"Expected False, got {result}"
@@ -46,14 +47,10 @@ def test_simple_box_load_dimension():
     """Test SimpleBox load_dimension method"""
     print("Testing SimpleBox load_dimension...")
     
-    # Create mock molecular data
-    mol_data = [
-        {'nAtoms': 2, 'masses': [1.0, 1.0], 'ridgid': False},
-        {'nAtoms': 3, 'masses': [1.0, 1.0, 1.0], 'ridgid': False}
-    ]
+
     
     # Initialize simple box
-    simple_box = SimpleBox(mol_data, NMolMin=[0, 0], NMolMax=[10, 10], NMol=[5, 5])
+    simple_box = SimpleBox([LJ_type], NMolMin=[0], NMolMax=[10], NMol=[5])
     
     # Test dimension line (should return 0 for simple box)
     result = simple_box.load_dimension("any line")
@@ -66,33 +63,29 @@ def test_cube_box_coordinates():
     print("Testing CubeBox coordinate loading...")
     
     # Create test coordinate file content
-    coord_content = """cube 10.0
-NMol 2 3
-NMax 5 5
-NMin 0 0
-1 1 1 1.0 2.0 3.0
-1 1 2 4.0 5.0 6.0
-2 1 1 7.0 8.0 9.0
-2 1 2 10.0 11.0 12.0
-2 1 3 13.0 14.0 15.0
-"""
+    coord_content = "NMol 2 3\nNMax 5 5\nNMin 0 0\n1 1 1 1.0 2.0 3.0\n1 1 2 4.0 5.0 6.0\n2 1 1 7.0 8.0 9.0\n2 1 2 10.0 11.0 12.0\n"
     
     # Write to temporary file
     with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as f:
         f.write(coord_content)
         temp_file = f.name
     
+    with open(temp_file, 'r') as f:
+        lines = f.readlines()
+    
     try:
+        box = CubeBox([LJ_type])
+        box.load_dimension([100.0])  # Set box length
         # Load coordinates
-        box = load_coords(temp_file, [LJ_type])
+        box.load_coordinate(lines)
         
         # Verify it's a CubeBox
         assert isinstance(box, CubeBox), f"Expected CubeBox, got {type(box)}"
         
         # Check dimensions
-        assert box.boxL == 10.0, f"Expected boxL=10.0, got {box.boxL}"
-        assert box.boxL2 == 5.0, f"Expected boxL2=5.0, got {box.boxL2}"
-        
+        assert np.all(box.boxL == 100.0), f"Expected boxL=10.0, got {box.boxL[0]}"
+        assert np.all(box.boxL2 == 50.0), f"Expected boxL2=5.0, got {box.boxL2[0]}"
+
         # Check molecule counts
         assert np.array_equal(box.NMol, [2, 3]), f"Expected NMol=[2, 3], got {box.NMol}"
         assert np.array_equal(box.NMolMax, [5, 5]), f"Expected NMolMax=[5, 5], got {box.NMolMax}"
@@ -103,8 +96,7 @@ NMin 0 0
             [1.0, 2.0, 3.0],
             [4.0, 5.0, 6.0],
             [7.0, 8.0, 9.0],
-            [10.0, 11.0, 12.0],
-            [13.0, 14.0, 15.0]
+            [10.0, 11.0, 12.0]
         ])
         
         assert np.allclose(box.atoms[:5], expected_coords), "Coordinates don't match expected values"
@@ -112,33 +104,30 @@ NMin 0 0
         print("✓ CubeBox coordinate loading test passed")
         
     finally:
-        # Clean up
-        os.unlink(temp_file)
+        pass
 
 def test_simple_box_coordinates():
     """Test loading coordinates into SimpleBox"""
     print("Testing SimpleBox coordinate loading...")
     
     # Create test coordinate file content
-    coord_content = """nobox
-NMol 2 3
-NMax 5 5
-NMin 0 0
-1 1 1 1.0 2.0 3.0
-1 1 2 4.0 5.0 6.0
-2 1 1 7.0 8.0 9.0
-2 1 2 10.0 11.0 12.0
-2 1 3 13.0 14.0 15.0
-"""
+    coord_content = "NMol 2 3\nNMax 5 5\nNMin 0 0\n1 1 1 1.0 2.0 3.0\n1 1 2 4.0 5.0 6.0\n2 1 1 7.0 8.0 9.0\n2 1 2 10.0 11.0 12.0\n"
+
     
     # Write to temporary file
     with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as f:
         f.write(coord_content)
         temp_file = f.name
+        
+    #Load from the temporary file
+    with open(temp_file, 'r') as f:
+        lines = f.readlines()
     
     try:
         # Load coordinates
-        box = load_coords(temp_file)
+        box = SimpleBox([LJ_type])
+        box.load_dimension([100.0])  # Set box length
+        box.load_coordinate(lines)
         
         # Verify it's a SimpleBox
         assert isinstance(box, SimpleBox), f"Expected SimpleBox, got {type(box)}"
@@ -153,8 +142,7 @@ NMin 0 0
             [1.0, 2.0, 3.0],
             [4.0, 5.0, 6.0],
             [7.0, 8.0, 9.0],
-            [10.0, 11.0, 12.0],
-            [13.0, 14.0, 15.0]
+            [10.0, 11.0, 12.0]
         ])
         
         assert np.allclose(box.atoms[:5], expected_coords), "Coordinates don't match expected values"

@@ -74,10 +74,7 @@ class SimBox(ClassyClass):
         self.nLists = 0
         self.NeighList = None
     
-    def constructor(self):
-        """Corresponds to Constructor in Fortran template"""
-        pass
-    
+   
     def load_atom_coord(self, line):
         """Corresponds to LoadAtomCoord"""
         return 0
@@ -148,7 +145,8 @@ class SimBox(ClassyClass):
     
     def process_io(self, line):
         """Corresponds to ProcessIO"""
-        return 0
+        # Default implementation does nothing and succeeds
+        return True
     
     def dump_data(self, filename):
         """Corresponds to DumpData"""
@@ -193,4 +191,4 @@ class SimBox(ClassyClass):
     
     def update_neigh_lists(self, disp):
         """Corresponds to UpdateNeighLists"""
-        pass 
+        pass
