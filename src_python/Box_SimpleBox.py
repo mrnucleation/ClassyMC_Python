@@ -28,6 +28,13 @@ class SimpleBox(SimBox):
 
         self.MolData = molData
         assert isinstance(self.MolData, list), "Molecular data must be a list of Molecule_Type objects"
+        
+        self.atomtype_dict = {}
+        for mol_type in self.MolData:
+            for atom_type in mol_type.atomtypes:
+                if atom_type not in self.atomtype_dict:
+                    self.atomtype_dict[atom_type] = len(self.atomtype_dict)
+        
         self.nMolTypes = len(molData)
         self.nDimensions = nDimensions
         assert self.nDimensions > 0, "Number of dimensions must be positive"
@@ -144,7 +151,10 @@ class SimpleBox(SimBox):
         
         # Compute intermolecular energy using energy function
         if self.EFunc is not None:
-            E_Inter, accept = self.EFunc.detailed_calc(self)
+            print("Computing intermolecular energy...")
+            print(f"Number of energy functions: {self.EFunc[0]}")
+            E_Inter, accept = self.EFunc[0].detailed_calc(self)
+            print(E_Inter, accept)
             if not accept:
                 return False
             self.E_Inter = E_Inter
@@ -166,6 +176,7 @@ class SimpleBox(SimBox):
         """
         E_Total = 0.0
         accept = True
+        return E_Total, accept
         
         for iType in range(self.nMolTypes):
             for iMol in range(self.NMol[iType]):
@@ -649,7 +660,7 @@ class SimpleBox(SimBox):
             print(f"Error writing dump file {filename}: {e}", file=sys.stderr)
     
     # -------------------------------------------------------------------------
-    def load_coordinate(self, lines):
+    def load_coordinate(self, lines, moldata):
         """
         Load coordinates from input lines.
         Format:
@@ -697,6 +708,7 @@ class SimpleBox(SimBox):
         newMolIndx = []
         newMolSubIndx = []
         newAtomSubIndx = []
+        newAtomType = []
         
         
         seen_mol_types = {}
@@ -737,7 +749,13 @@ class SimpleBox(SimBox):
             newMolSubIndx.append(submol_index) 
             newAtomSubIndx.append(atom_index)
             
-            
+            # Get the atom type from the molecule data
+            if mol_type < len(self.MolData):
+                atom_type_str = self.MolData[mol_type].atomtypes[atom_index]
+                if atom_type_str not in self.atomtype_dict:
+                    raise IOError(f"Error: Atom type '{atom_type_str}' not found in atomtype_dict")
+                atom_type = self.atomtype_dict[atom_type_str]
+            newAtomType.append(atom_type)
             current_atom += 1
         
         self.atoms = np.vstack(newatoms) 
@@ -745,6 +763,7 @@ class SimpleBox(SimBox):
         self.MolIndx = np.array(newMolIndx, dtype=int)
         self.MolSubIndx = np.array(newMolSubIndx, dtype=int)
         self.AtomSubIndx = np.array(newAtomSubIndx, dtype=int)
+        self.AtomType = np.array(newAtomType, dtype=int)
         
         self.nAtoms = current_atom
         self.nMolTotal = current_mol

@@ -6,7 +6,7 @@ Defines the displacement types used by Monte Carlo moves.
 """
 
 import numpy as np
-from VarPrecision import dp
+from .VarPrecision import dp
 
 
 # =============================================================================

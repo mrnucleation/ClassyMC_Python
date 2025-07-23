@@ -13,6 +13,7 @@ from abc import ABC, abstractmethod
 from typing import Tuple, List, Dict, Optional, Any
 from .Template_Forcefield import ForceField
 from .VarPrecision import dp
+from .CoordinateTypes import Displacement
 
 #================================================================================
 class EasyPairCut(ForceField):
@@ -27,21 +28,12 @@ class EasyPairCut(ForceField):
         
         # EasyPair specific attributes
         self.usetailcorrection = False
-        self.rMin = None          # Will be allocated in constructor
-        self.rMinTable = None     # Will be allocated in constructor
+        self.rMin = None         
+        self.rMinTable = None    
         
-    #-------------------------------------------------------------------------
-    def constructor(self):
-        """
-        Corresponds to Constructor_EasyPair_Cut
-        Allocate and initialize arrays for pair interactions
-        """
-        # Set default values - subclasses should override these
         self.rCut = 5.0
         self.rCutSq = 25.0
         
-        # Note: rMin and rMinTable arrays should be allocated in subclasses
-        # since they depend on the number of atom types
     
     #-------------------------------------------------------------------------
     def pair_function(self, rsq: float, atmtype1: int, atmtype2: int) -> float:
@@ -75,7 +67,7 @@ class EasyPairCut(ForceField):
         return 0.0  # Default implementation - override in subclasses
     
     #-------------------------------------------------------------------------
-    def detailed_calc(self, curbox) -> Tuple[float, bool]:
+    def detailed_calc_fortran(self, curbox) -> Tuple[float, bool]:
         """
         Corresponds to Detailed_EasyPair_Cut
         Compute total pairwise energy for the system
@@ -89,7 +81,7 @@ class EasyPairCut(ForceField):
         atoms = curbox.get_coordinates()
         
         E_Total = 0.0
-        curbox.ETable.fill(0.0)
+        #curbox.ETable.fill(0.0)
         accept = True
         
         # Double loop over all atoms
@@ -132,8 +124,8 @@ class EasyPairCut(ForceField):
                     E_Total += E_Pair
                     
                     # Update energy table
-                    curbox.ETable[iAtom] += E_Pair
-                    curbox.ETable[jAtom] += E_Pair
+                    #curbox.ETable[iAtom] += E_Pair
+                    #curbox.ETable[jAtom] += E_Pair
         
         print(f"Total Pair Energy: {E_Total}")
         
@@ -143,6 +135,57 @@ class EasyPairCut(ForceField):
             E_Total += E_Corr
             print(f"Total Tail Corrections: {E_Corr}")
         
+        return E_Total, accept
+    #-------------------------------------------------------------------------
+    def detailed_calc(self, curbox) -> Tuple[float, bool]:
+        '''
+          Reimplimentation using Python style numpy arrays instead of Fortran style
+        '''
+        print("Running detailed_calc with numpy arrays...")
+        atoms = curbox.get_coordinates()
+        molIndx = curbox.MolIndx
+        
+        print(atoms.shape)
+        E_Total = 0.0
+        accept = True
+        
+        for iAtom, x_atom in enumerate(atoms[:-1]):
+            cut_list = atoms[iAtom+1:,:] # Exclude intramolecular interactions
+            jAtomTypes = curbox.AtomType[iAtom+1:]
+            include_mask = np.where(molIndx[iAtom+1:] != molIndx[iAtom])
+            print("Include:",include_mask)
+            cut_list = cut_list[include_mask, :]
+            jAtomTypes = jAtomTypes[include_mask]
+            
+            print(cut_list)
+            
+
+            print(f"jAtomTypes: {jAtomTypes}")
+            print(f"Processing atom {iAtom} with {len(jAtomTypes)} neighbors")
+            
+            
+            rx = cut_list - x_atom
+            rx = curbox.boundary(rx) # Apply periodic boundary conditions if needed
+            rsq = np.sum(rx**2, axis=1).reshape(-1)  # Calculate squared distances
+            print(rsq.shape)
+            # Check if any pairs are within the auto-rection rMin
+            if self.rMinTable is not None:
+                rmin_ij = self.rMinTable[curbox.AtomType[iAtom], jAtomTypes]
+                rmin_ij = rmin_ij.reshape(-1)
+                accept = np.all(rsq >= rmin_ij)
+                if not accept:
+                    print(f"ERROR! Overlapping atoms found for atom {iAtom} with cutoff {self.rCut}")
+                    print(f"Distance: {np.sqrt(rsq)}")
+                    raise ValueError(f"Overlapping atoms found for atom {iAtom} with cutoff {self.rCut}")
+            within_cutoff = rsq < self.rCutSq
+            print(f"Within cutoff: {within_cutoff} pairs")
+            if not np.any(within_cutoff):
+                continue
+            rsq = rsq[within_cutoff]
+            print(f"Filtered rsq: {rsq}")
+            jAtomTypes = jAtomTypes[within_cutoff]
+            E_pair = self.pair_function(rsq, curbox.AtomType[iAtom], jAtomTypes)
+            E_Total += np.sum(E_pair)
         return E_Total, accept
     #-------------------------------------------------------------------------
     def diff_calc(self, curbox, disp, tempList=None, tempNNei=None) -> Tuple[float, bool]:

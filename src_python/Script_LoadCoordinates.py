@@ -7,7 +7,8 @@ def load_coords(coordinatefile, moldata):
     
     boxtypes = {
         'nobox': SimpleBox,
-        'cube': CubeBox
+        'cube': CubeBox,
+        "cubic": CubeBox
     }
     
     f = open(coordinatefile, 'r')
@@ -25,6 +26,8 @@ def load_coords(coordinatefile, moldata):
     
 
     box = boxtypes.get(first_line[0])
+    if box is None:
+        raise ValueError(f"Unknown box type: {first_line[0]}")
     box = box(moldata) if box else None
     
     #Extra columns after give the box dimensions
@@ -34,7 +37,7 @@ def load_coords(coordinatefile, moldata):
                 box.load_dimension([float(dim) for dim in first_line[1:]])
             except ValueError as e:
                 raise ValueError(f"Invalid dimensions in the first line: {e}")
-    box.load_coordinate(lines[1:])
+    box.load_coordinate(lines[1:], moldata)
     
     
     return box

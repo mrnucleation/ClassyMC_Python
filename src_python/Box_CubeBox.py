@@ -31,6 +31,9 @@ class CubeBox(SimpleBox):
         self.boxL = 0.0      # Box length
         self.boxL2 = 0.0     # Half box length (for efficiency)
         self.boxStr = "Cube"
+        
+        
+        
     #--------------------------------------------------------------------------   
     def load_dimension(self, boxlengths: list[float]) -> bool:
         """
@@ -40,6 +43,7 @@ class CubeBox(SimpleBox):
         try:
             self.boxL = np.full(self.nDimensions, boxlengths[0], dtype=dp)
             self.boxL2 = self.boxL / 2.0
+            self.volume = self.boxL ** (self.nDimensions)
             return True
         except (ValueError, IndexError):
             return False

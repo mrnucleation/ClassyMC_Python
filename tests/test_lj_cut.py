@@ -40,13 +40,13 @@ def test_lj_cut_basic():
     print("\nTesting pair function...")
     
     # Verify arrays are initialized properly
-    assert lj_ff.sig is not None, "Sigma array not initialized"
-    assert lj_ff.eps is not None, "Epsilon array not initialized"
+    assert lj_ff.sigma is not None, "Sigma array not initialized"
+    assert lj_ff.epsilon is not None, "Epsilon array not initialized"
     assert lj_ff.epsTable is not None, "Epsilon table not initialized"
     assert lj_ff.sigTable is not None, "Sigma table not initialized"
     
     # Test at sigma distance (should be zero)
-    sigma_12 = 0.5 * (lj_ff.sig[0] + lj_ff.sig[1])  # Mixed sigma
+    sigma_12 = 0.5 * (lj_ff.sigma[0] + lj_ff.sigma[1])  # Mixed sigma
     rsq_sigma = sigma_12**2
     energy_at_sigma = lj_ff.pair_function(rsq_sigma, 0, 1)
     print(f"Energy at sigma distance: {energy_at_sigma:.6f}")
@@ -69,9 +69,9 @@ def test_lj_cut_basic():
     
     # Verify mixing rules
     print("\nVerifying mixing rules...")
-    eps_11 = lj_ff.eps[0] * lj_ff.eps[0]
-    eps_22 = lj_ff.eps[1] * lj_ff.eps[1] 
-    eps_12_theory = 4.0 * np.sqrt(lj_ff.eps[0] * lj_ff.eps[1])
+    eps_11 = lj_ff.epsilon[0] * lj_ff.epsilon[0]
+    eps_22 = lj_ff.epsilon[1] * lj_ff.epsilon[1] 
+    eps_12_theory = 4.0 * np.sqrt(lj_ff.epsilon[0] * lj_ff.epsilon[1])
     eps_12_actual = lj_ff.epsTable[0, 1]
     
     print(f"Type 1-1 epsilon: {4.0 * eps_11:.3f}")
@@ -79,7 +79,7 @@ def test_lj_cut_basic():
     print(f"Type 1-2 epsilon (theoretical): {eps_12_theory:.3f}")
     print(f"Type 1-2 epsilon (actual): {eps_12_actual:.3f}")
     
-    sig_12_theory = (0.5 * (lj_ff.sig[0] + lj_ff.sig[1]))**2
+    sig_12_theory = (0.5 * (lj_ff.sigma[0] + lj_ff.sigma[1]))**2
     sig_12_actual = lj_ff.sigTable[0, 1]
     print(f"Type 1-2 sigma^2 (theoretical): {sig_12_theory:.3f}")
     print(f"Type 1-2 sigma^2 (actual): {sig_12_actual:.3f}")

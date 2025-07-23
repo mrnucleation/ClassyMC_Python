@@ -41,8 +41,8 @@ class LJ_Cut(EasyPairCut):
         super().__init__()
         
         # LJ-specific parameters (will be allocated in constructor)
-        self.eps = None          # LJ epsilon parameters per type
-        self.sig = None          # LJ sigma parameters per type
+        self.epsilon = None          # LJ epsilon parameters per type
+        self.sigma = None          # LJ sigma parameters per type
         
         # Mixing rule tables
         self.epsTable = None     # Mixed epsilon values
@@ -53,19 +53,10 @@ class LJ_Cut(EasyPairCut):
         self.TypeCount = None
         
         self.nAtomTypes = nAtomTypes
-    
-    #-------------------------------------------------------------------------
-    def constructor(self, nAtomTypes=None, nMolTypes=None):
-        """
-        Corresponds to Constructor_EP_LJ_Cut
-        Allocate and initialize LJ parameter arrays
-        """
-        if nAtomTypes is not None:
-            self.nAtomTypes = nAtomTypes
         
         # Allocate per-type arrays
-        self.eps = np.full(self.nAtomTypes, 1.0, dtype=dp)  # Default epsilon = 1.0 (not 4.0)
-        self.sig = np.full(self.nAtomTypes, 1.0, dtype=dp)
+        self.epsilon = np.full(self.nAtomTypes, 1.0, dtype=dp)  # Default epsilon = 1.0 (not 4.0)
+        self.sigma = np.full(self.nAtomTypes, 1.0, dtype=dp)
         self.rMin = np.full(self.nAtomTypes, 0.5, dtype=dp)
         
         # Allocate mixing tables
@@ -80,7 +71,7 @@ class LJ_Cut(EasyPairCut):
         print(f"LJ/Cut Force Field initialized with {self.nAtomTypes} atom types")
     
     #-------------------------------------------------------------------------
-    def pair_function(self, rsq: float, atmtype1: int, atmtype2: int) -> float:
+    def pair_function(self, rsq: float, atmtype1: int, atmtype2: np.ndarray) -> float:
         """
         Corresponds to PairFunction_EP_LJ_Cut
         Calculate Lennard-Jones 12-6 energy
@@ -97,9 +88,11 @@ class LJ_Cut(EasyPairCut):
             print("ERROR: LJ parameters not initialized")
             return 0.0
             
-        ep = self.epsTable[atmtype2, atmtype1]
-        sig_sq = self.sigTable[atmtype2, atmtype1]
-        
+        ep = self.epsTable[atmtype1, atmtype2]
+        sig_sq = self.sigTable[atmtype1, atmtype2]
+
+        print(f"sig_sq: {sig_sq}, rsq: {rsq}")
+
         # Calculate (sigma/r)^2
         inv_rsq = sig_sq / rsq
         
@@ -323,19 +316,19 @@ class LJ_Cut(EasyPairCut):
                     return -1
                 
                 # Store single-type parameters
-                self.eps[type1] = epsilon
-                self.sig[type1] = sigma
+                self.epsilon[type1] = epsilon
+                self.sigma[type1] = sigma
                 self.rMin[type1] = rmin
                 
                 # Update mixing tables using Lorentz-Berthelot rules
                 for jType in range(self.nAtomTypes):
                     # Geometric mean for epsilon (with factor of 4)
-                    eps_mix = 4.0 * np.sqrt(epsilon * self.eps[jType])
+                    eps_mix = 4.0 * np.sqrt(epsilon * self.epsilon[jType])
                     self.epsTable[type1, jType] = eps_mix
                     self.epsTable[jType, type1] = eps_mix
                     
                     # Arithmetic mean for sigma (stored as sigma^2)
-                    sig_mix = (0.5 * (sigma + self.sig[jType]))**2
+                    sig_mix = (0.5 * (sigma + self.sigma[jType]))**2
                     self.sigTable[type1, jType] = sig_mix
                     self.sigTable[jType, type1] = sig_mix
                     
@@ -387,10 +380,10 @@ class LJ_Cut(EasyPairCut):
         print(f"  Tail corrections: {self.usetailcorrection}")
         print(f"  Number of atom types: {self.nAtomTypes}")
         
-        if self.eps is not None and self.sig is not None and self.rMin is not None:
+        if self.epsilon is not None and self.sigma is not None and self.rMin is not None:
             print("  LJ Parameters:")
             for i in range(self.nAtomTypes):
-                print(f"    Type {i+1}: eps={self.eps[i]:.4f}, sig={self.sig[i]:.4f}, rmin={self.rMin[i]:.4f}")
+                print(f"    Type {i+1}: eps={self.epsilon[i]:.4f}, sig={self.sigma[i]:.4f}, rmin={self.rMin[i]:.4f}")
     
     #-------------------------------------------------------------------------
     def epilogue(self):
