@@ -153,21 +153,13 @@ class EasyPairCut(ForceField):
             cut_list = atoms[iAtom+1:,:] # Exclude intramolecular interactions
             jAtomTypes = curbox.AtomType[iAtom+1:]
             include_mask = np.where(molIndx[iAtom+1:] != molIndx[iAtom])
-            print("Include:",include_mask)
-            cut_list = cut_list[include_mask, :]
+            cut_list = cut_list[include_mask]
             jAtomTypes = jAtomTypes[include_mask]
             
-            print(cut_list)
-            
 
-            print(f"jAtomTypes: {jAtomTypes}")
-            print(f"Processing atom {iAtom} with {len(jAtomTypes)} neighbors")
-            
-            
-            rx = cut_list - x_atom
+            rx = np.subtract(cut_list, x_atom.reshape(1, -1))  # Calculate distance vectors
             rx = curbox.boundary(rx) # Apply periodic boundary conditions if needed
             rsq = np.sum(rx**2, axis=1).reshape(-1)  # Calculate squared distances
-            print(rsq.shape)
             # Check if any pairs are within the auto-rection rMin
             if self.rMinTable is not None:
                 rmin_ij = self.rMinTable[curbox.AtomType[iAtom], jAtomTypes]
@@ -178,11 +170,9 @@ class EasyPairCut(ForceField):
                     print(f"Distance: {np.sqrt(rsq)}")
                     raise ValueError(f"Overlapping atoms found for atom {iAtom} with cutoff {self.rCut}")
             within_cutoff = rsq < self.rCutSq
-            print(f"Within cutoff: {within_cutoff} pairs")
             if not np.any(within_cutoff):
                 continue
             rsq = rsq[within_cutoff]
-            print(f"Filtered rsq: {rsq}")
             jAtomTypes = jAtomTypes[within_cutoff]
             E_pair = self.pair_function(rsq, curbox.AtomType[iAtom], jAtomTypes)
             E_Total += np.sum(E_pair)
