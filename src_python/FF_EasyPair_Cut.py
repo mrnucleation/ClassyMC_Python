@@ -145,7 +145,6 @@ class EasyPairCut(ForceField):
         atoms = curbox.get_coordinates()
         molIndx = curbox.MolIndx
         
-        print(atoms.shape)
         E_Total = 0.0
         accept = True
         
@@ -193,32 +192,13 @@ class EasyPairCut(ForceField):
             tuple: (energy_difference, accept_flag)
         """
         accept = True
-        curbox.dETable.fill(0.0)
         E_Diff = 0.0
         
         # Determine perturbation type and dispatch accordingly
-        if hasattr(disp[0], 'atmIndx'):
+        if isinstance(disp, Displacement):
             # Displacement move
-            if hasattr(disp[0], 'newlist') and disp[0].newlist:
-                E_Diff, accept = self.shift_calc_single(curbox, disp, tempList, tempNNei)
-            else:
-                E_Diff, accept = self.shift_calc_single(curbox, disp)
+            E_Diff, accept = self.shift_calc_single_numpy(curbox, disp, tempList, tempNNei)
                 
-        elif hasattr(disp[0], 'molType') and hasattr(disp[0], 'addition'):
-            # Addition move
-            E_Diff, accept = self.new_calc(curbox, disp, tempList, tempNNei)
-            
-        elif hasattr(disp[0], 'molType') and hasattr(disp[0], 'deletion'):
-            # Deletion move
-            E_Diff = self.old_calc(curbox, disp)
-            
-        elif hasattr(disp[0], 'volNew'):
-            # Volume change move
-            E_Diff, accept = self.ortho_vol_calc(curbox, disp)
-            
-        elif hasattr(disp[0], 'newType') and hasattr(disp[0], 'oldType'):
-            # Atom exchange move
-            E_Diff, accept = self.atom_exchange(curbox, disp)
             
         else:
             print("Unknown Perturbation Type Encountered by EasyPair_Cut", file=sys.stderr)
@@ -231,14 +211,14 @@ class EasyPairCut(ForceField):
         
         return E_Diff, accept
      #-------------------------------------------------------------------------
-    def shift_calc_single_numpy(self, curbox, disp, tempList=None, tempNNei=None) -> Tuple[float, bool]:
+    def shift_calc_single_numpy(self, curbox, disp: Displacement, tempList=None, tempNNei=None) -> Tuple[float, bool]:
         """
         Corresponds to Shift_EasyPair_Cut_Single
         Compute energy change for displacement moves
         
         Args:
             curbox: SimBox instance
-            disp: Displacement perturbations
+            disp: Displacement perturbations (single or list)
             tempList: Optional neighbor list
             tempNNei: Optional neighbor counts
             
@@ -251,60 +231,43 @@ class EasyPairCut(ForceField):
         # Get atom positions
         atoms = curbox.get_coordinates()
         molIndx = curbox.MolIndx
+        atoms_new = disp.X
+        #I will update this later when the neighbor list is implemented
+        mask = np.where(molIndx != disp.molIndx)
+        cut_list = atoms[mask]
+        jAtomTypes = curbox.AtomType[mask]       
         
+        #Compute the squared distances of the new positions
+        rx = cut_list - atoms_new
+        rx = curbox.boundary(rx)
+        rsq = np.sum(rx**2, axis=1)
         
-        # Process each displaced atom
-        for displacement in disp:
-            if not hasattr(displacement, 'atmIndx'):
-                continue
-                
-            atmIndx = displacement.atmIndx
-            atmType1 = curbox.AtomType[atmIndx]
-            
-            # Calculate old energy
-            E_Old = 0.0
-            for jAtom in range(curbox.nMaxAtoms):
-                if not curbox.is_active(jAtom) or jAtom == atmIndx:
-                    continue
-                if curbox.MolIndx[jAtom] == curbox.MolIndx[atmIndx]:
-                    continue
-                
-                rx = atoms[atmIndx, :] - atoms[jAtom, :]
-                rx = curbox.boundary(rx)
-                rsq = np.sum(rx**2)
-                
-                if rsq < self.rCutSq:
-                    atmType2 = curbox.AtomType[jAtom]
-                    E_Old += self.pair_function(rsq, atmType1, atmType2)
-            
-            # Calculate new energy
-            E_New = 0.0
-            for jAtom in range(curbox.nMaxAtoms):
-                if not curbox.is_active(jAtom) or jAtom == atmIndx:
-                    continue
-                if curbox.MolIndx[jAtom] == curbox.MolIndx[atmIndx]:
-                    continue
-                
-                rx = displacement.x_new[:] - atoms[jAtom, :]
-                rx = curbox.boundary(rx)
-                rsq = np.sum(rx**2)
-                
-                if rsq < self.rCutSq:
-                    atmType2 = curbox.AtomType[jAtom]
-                    
-                    # Check minimum distance
-                    if self.rMinTable is not None:
-                        rmin_ij = self.rMinTable[atmType1, atmType2]
-                        if rsq < rmin_ij:
-                            return 0.0, False
-                    
-                    E_New += self.pair_function(rsq, atmType1, atmType2)
-            
-            E_Diff += E_New - E_Old
+        # Check if any pairs are within the cutoff
+        if self.rMinTable is not None:
+            rmin_ij = self.rMinTable[curbox.AtomType[disp.atmIndicies], jAtomTypes]
+            rmin_ij = rmin_ij.reshape(-1)
+            accept = np.all(rsq >= rmin_ij)
+            if not accept:
+                return 0.0, False
+
         
+        within_cutoff = rsq < self.rCutSq
+        rsq = rsq[within_cutoff]
+        jAtomTypes = jAtomTypes[within_cutoff]
+
+        E_pair = self.pair_function(rsq, curbox.AtomType[disp.atmIndicies], jAtomTypes)
+        E_Diff += np.sum(E_pair)
+        
+        #Compute the squared distances of the old positions
+        rx_old = atoms[disp.atmIndicies] - cut_list
+        rx_old = curbox.boundary(rx_old)
+        rsq_old = np.sum(rx_old**2, axis=1)
+        within_cutoff_old = rsq_old < self.rCutSq
+        rsq_old = rsq_old[within_cutoff_old]
+        jAtomTypes_old = jAtomTypes[within_cutoff_old]
+        E_pair_old = self.pair_function(rsq_old, curbox.AtomType[disp.atmIndicies], jAtomTypes_old)
+        E_Diff -= np.sum(E_pair_old)
         return E_Diff, accept
-    
-   
     #-------------------------------------------------------------------------
     def shift_calc_single(self, curbox, disp, tempList=None, tempNNei=None) -> Tuple[float, bool]:
         """
@@ -313,7 +276,7 @@ class EasyPairCut(ForceField):
         
         Args:
             curbox: SimBox instance
-            disp: Displacement perturbations
+            disp: Displacement perturbations (single or list)
             tempList: Optional neighbor list
             tempNNei: Optional neighbor counts
             
@@ -326,8 +289,14 @@ class EasyPairCut(ForceField):
         # Get atom positions
         atoms = curbox.get_coordinates()
         
+        # Handle both single displacement and list of displacements
+        if isinstance(disp, Displacement):
+            displacements = [disp]
+        else:
+            displacements = disp
+        
         # Process each displaced atom
-        for displacement in disp:
+        for displacement in displacements:
             if not hasattr(displacement, 'atmIndx'):
                 continue
                 

@@ -16,11 +16,11 @@ class Displacement:
     Corresponds to the Fortran Displacement type.
     """
 
-    def __init__(self, molType, molIndx, atmIndx, newPositions):
+    def __init__(self, molType: int, molIndx: int, atmIndicies: np.ndarray, newPositions: np.ndarray):
         # Molecule information
         self.molType = molType
         self.molIndx = molIndx
-        self.atmIndx = atmIndx
+        self.atmIndicies = atmIndicies
         # New positions of atoms
         self.X = newPositions
 # =============================================================================

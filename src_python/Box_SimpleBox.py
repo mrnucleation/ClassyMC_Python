@@ -12,6 +12,7 @@ import sys
 from abc import ABC, abstractmethod
 from .Template_SimBox import SimBox
 from .VarPrecision import dp
+from .CoordinateTypes import Displacement
 from typing import Optional, List, Dict, Tuple, Any, Union
 
 
@@ -263,15 +264,15 @@ class SimpleBox(SimBox):
         
         # Compute intermolecular energy change
         if self.EFunc is not None:
-            E_Inter, accept = self.EFunc.diff_calc(self, disp, templist, tempnnei)
+            E_Inter, accept = self.EFunc[0].diff_calc(self, disp, templist, tempnnei)
             if not accept:
                 return 0.0, 0.0, False
         
         # Compute intramolecular energy change if requested
-        if computeintra is None or computeintra:
-            E_Intra, accept = self.compute_intra_energy_delta(disp)
-            if not accept:
-                return 0.0, 0.0, False
+#        if computeintra is None or computeintra:
+#            E_Intra, accept = self.compute_intra_energy_delta(disp)
+#            if not accept:
+#                return 0.0, 0.0, False
         
         return E_Inter, E_Intra, accept
     
@@ -416,17 +417,13 @@ class SimpleBox(SimBox):
         return True
     
     # -------------------------------------------------------------------------
-    def update_position(self, disp):
+    def update_position(self, disp: Displacement):
         """
         Corresponds to SimpleBox_UpdatePosition
         Update atomic positions based on displacement
         """
-        for displacement in disp:
-            if hasattr(displacement, 'atmIndx'):
-                atmIndx = displacement.atmIndx
-                self.atoms[atmIndx, 0] = displacement.x_new
-                self.atoms[atmIndx, 1] = displacement.y_new
-                self.atoms[atmIndx, 2] = displacement.z_new
+        self.atoms[disp.atmIndicies, :] = disp.X
+
     
     # -------------------------------------------------------------------------
     def check_constraint(self, disp=None):

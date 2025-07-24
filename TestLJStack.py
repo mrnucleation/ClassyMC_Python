@@ -3,7 +3,10 @@
 from src_python.Script_LoadCoordinates import load_coords
 from src_python.Molecule_Definition import Molecule_Type
 from src_python.FF_LJ_Cut import LJ_Cut
+from src_python.CoordinateTypes import Displacement
+
 import numpy as np
+
 
 
 def test_lj_stack():
@@ -49,8 +52,31 @@ def test_lj_stack():
     print("Initial energy computed successfully.")
     print(f"Initial Energy: {box.E_Inter}")
     
+    start_energy = box.ETotal
     
-
+    #Set up a displacement object
+    disp = Displacement(LJ_type, 0, 0, box.atoms[0])
+    print(f"Displacement created: {disp}")
+    delta_x = np.array([1.12, 0.0, 0.0])
+    disp.X = box.atoms[0] + delta_x
+    
+    # Compute the energy after displacement
+    E_Inter, E_Intra, accept = box.compute_energy_delta(disp)
+    assert accept, "Energy computation after displacement failed"
+    #Update the box with the new positions and energy
+    
+    print(f"Delta x: {E_Inter}")
+    
+    box.update_position(disp)
+    #box.update_energy(E_Inter)
+    
+    new_running_energy = start_energy + E_Inter
+    
+    #Recompute the energy with the new positions
+    success = box.compute_energy()
+    assert success, "Energy computation failed"
+    
+    print(f"Energy difference: {box.ETotal - new_running_energy}")
 
 if __name__ == "__main__":
     print("Running LJ Stack tests...")
