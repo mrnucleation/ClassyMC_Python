@@ -114,13 +114,43 @@ class SimpleBox(SimBox):
         # Build indexing arrays
         print(f"SimpleBox initialized with {self.nMaxAtoms} max atoms, {self.maxMol} max molecules")
         
-        
     # -------------------------------------------------------------------------
-    def collapse_mols_to_array(self):
-        """Collapse molecules to array representation"""
-        pass  # Implementation would go here
-
-    
+    def get_molindicies(self) -> np.ndarray:
+        return list(set(self.MolIndx))
+    # -------------------------------------------------------------------------
+    def get_moldetails(self, molIndx: int) -> Dict[str, Any]:
+        """
+        Get details of a molecule by its index.
+        
+        Args:
+            molIndx (int): Index of the molecule.
+        
+        Returns:
+            Dict[str, Any]: Dictionary containing molecule details.
+        """
+        
+        print(self.MolIndx)
+        print(molIndx)
+        
+        mask = np.where(self.MolIndx == molIndx)
+        print(mask)
+        
+        #Get the indices of the atoms in the molecule by using the mask is True
+        
+        
+        
+        #Get atom indices and positions
+        atoms = self.atoms[mask]
+        molType = self.MolType[molIndx]
+        atomindicies = np.array([i for i, x in enumerate(mask) if x], dtype=int)
+        
+        
+        
+        return {
+            'molType': molType,
+            'atmIndicies': atomindicies,
+            'atoms': atoms
+        }
     # -------------------------------------------------------------------------
     def load_dimension(self, boxlengths: List[float]) -> bool:
         """
@@ -415,6 +445,7 @@ class SimpleBox(SimBox):
         self.nAtoms -= self.MolData[molType]['nAtoms']
         
         return True
+    
     
     # -------------------------------------------------------------------------
     def update_position(self, disp: Displacement):

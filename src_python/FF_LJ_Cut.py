@@ -91,7 +91,6 @@ class LJ_Cut(EasyPairCut):
         ep = self.epsTable[atmtype1, atmtype2]
         sig_sq = self.sigTable[atmtype1, atmtype2]
 
-        print(f"sig_sq: {sig_sq}, rsq: {rsq}")
 
         # Calculate (sigma/r)^2
         inv_rsq = sig_sq / rsq

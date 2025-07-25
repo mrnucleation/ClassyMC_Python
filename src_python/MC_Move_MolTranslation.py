@@ -1,11 +1,12 @@
 from .Template_MCMove import MCMove
 import numpy as np
-from random import random
+from random import random, choice
 from .VarPrecision import dp
 from .Box_SimpleBox import SimpleBox
 from .CoordinateTypes import Displacement
 import math
 
+#=======================================================================
 class MolTranslate(MCMove):
     """
     Performs a Monte Carlo translation move on a randomly selected molecule.
@@ -13,6 +14,7 @@ class MolTranslate(MCMove):
     This class is a Python translation of the Fortran `MCMove_MolTranslation`
     module.
     """
+    #----------------------------------------------------------------------------
     def __init__(self, BoxArray):
         super().__init__()
         # --- Default attributes from Fortran type definition ---
@@ -43,8 +45,8 @@ class MolTranslate(MCMove):
 
         # Initialize displacement array (will be resized as needed)
         self.disp = []
-
-    def full_move(self, trial_box: SimpleBox):
+    #----------------------------------------------------------------------------
+    def full_move(self, trial_box: SimpleBox, sampling):
         """
         Performs one molecule translation MC move.
         Returns a boolean indicating if the move was accepted.
@@ -55,48 +57,68 @@ class MolTranslate(MCMove):
         self.boxatmps[box_idx] += 1.0
 
         # --- Propose move ---
-
-        dx = self.boxmax_dist[box_idx] * np.random.uniform(-1.0, 1.0)
         
-        x_new = 
+        candidates = trial_box.get_molindicies()
+        if len(candidates) == 0:
+            print("No molecules available for translation.")
+            return False
 
-        n_atoms = trial_box.GetMolTypeInfo(mol_type).nAtoms
+        print(f"Available molecules for translation: {candidates}")
+        targetMol = choice(candidates)
+        print(f"Selected molecule for translation: {targetMol}")
+        molProperties = trial_box.get_moldetails(targetMol)
         
-        # Create displacements for each atom in the molecule
-        for i_atom in range(n_atoms):
-            self.disp.append(Displacement(dx, 0.0, 0.0))
+        oldpos = molProperties['atoms']
+        molType = molProperties['molType']
+        atomindices = molProperties['atmIndicies']
+        
 
+        dx = self.boxmax_dist[box_idx] * np.random.uniform(-1.0, 1.0, size=oldpos.shape)
+        x_new = oldpos + dx
+        disp = Displacement(
+            molType=molType,
+            molIndx=targetMol,
+            atmIndicies=atomindices,
+            newPositions=x_new
+        )
+ 
+        print(f"Proposed move for molecule {targetMol} of type {molType}:")
+        print(f"Atom indices: {atomindices}")       
 
         # --- Check constraints and calculate energy ---
-        active_disp = self.disp[:n_atoms]
-        if not trial_box.CheckConstraint(active_disp):
+        if not trial_box.check_constraint(disp):
             self.constrainrej += 1
             return False
 
-        e_inter, e_intra, e_diff, accept_energy = trial_box.ComputeEnergyDelta(
-            active_disp, self.tempList, self.tempNnei, computeintra=False
+        e_inter, e_intra, accept = trial_box.compute_energy_delta(
+            disp, 
+            self.tempList, 
+            self.tempNnei, 
+            computeintra=False
         )
-        if not accept_energy:
+        if not accept:
             self.ovlaprej += 1
             return False
+        
+        e_diff = e_inter + e_intra
 
-        if not trial_box.CheckPostEnergy(active_disp, e_diff):
+        if not trial_box.check_post_energy(disp, e_diff):
             self.constrainrej += 1
             return False
 
         # --- Accept/Reject ---
-        accept = trial_box.MakeDecision(e_diff, active_disp, inProb=1.0)
+        accept = sampling.make_decision(trial_box, e_diff, disp, in_prob=1.0)
 
         if accept:
             self.accpt += 1.0
             self.boxaccpt[box_idx] += 1.0
-            trial_box.UpdateEnergy(e_diff, e_inter)
-            trial_box.UpdatePosition(active_disp, self.tempList, self.tempNnei)
+            trial_box.update_energy(e_diff)
+            trial_box.update_position(disp)
         else:
             self.detailedrej += 1
         
         return accept
-
+    #----------------------------------------------------------------------------
     def maintenance(self):
         """
         Tunes the maximum displacement to achieve a target acceptance rate.
@@ -115,11 +137,11 @@ class MolTranslate(MCMove):
                 self.boxmax_dist[i_box] = min(new_dist, self.boxlimit[i_box])
             else:
                 self.boxmax_dist[i_box] *= 0.99
-
+    #----------------------------------------------------------------------------
     def prologue(self):
         """Prints information at the start of a simulation block."""
         print(f"(Molecule Translate) Maximum Displacement: {self.max_dist:15.8f}", file=nout)
-
+    #----------------------------------------------------------------------------
     def epilogue(self):
         """Prints summary statistics at the end of a simulation block."""
         print(file=nout)
@@ -137,7 +159,7 @@ class MolTranslate(MCMove):
             print(f"Molecule Translation, Rejections due to overlap:         {self.ovlaprej:15d}", file=nout)
             print(f"Molecule Translation, Rejections due to constraint:      {self.constrainrej:15d}", file=nout)
             print(f"Molecule Translation, Rejections due to detailed balance:{self.detailedrej:15d}", file=nout)
-
+    #----------------------------------------------------------------------------
     def update(self):
         """Updates box probabilities based on the number of molecules."""
         if self.proportional:
@@ -145,7 +167,7 @@ class MolTranslate(MCMove):
             norm = np.sum(n_mols)
             if norm > 0:
                 self.boxProb = n_mols / norm
-
+    #----------------------------------------------------------------------------
     def process_io(self, line: str):
         """
         Parses a line from an input file to set parameters.
@@ -176,3 +198,4 @@ class MolTranslate(MCMove):
         except (ValueError, IndexError):
             return -1  # Error parsing value
         return 0
+#=======================================================================

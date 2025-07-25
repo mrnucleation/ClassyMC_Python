@@ -1,13 +1,16 @@
 
-
+from time import time
 from src_python.Script_LoadCoordinates import load_coords
 from src_python.Molecule_Definition import Molecule_Type
 from src_python.FF_LJ_Cut import LJ_Cut
 from src_python.CoordinateTypes import Displacement
+from src_python.MC_Move_MolTranslation import MolTranslate
+from src_python.Sampling_Metropolis import Metropolis
 
 import numpy as np
 
-
+#Seed the random number generator for reproducibility
+np.random.seed(42)
 
 def test_lj_stack():
     
@@ -77,6 +80,27 @@ def test_lj_stack():
     assert success, "Energy computation failed"
     
     print(f"Energy difference: {box.ETotal - new_running_energy}")
+    
+    
+    #Test index functions
+    mol_indicies = box.get_molindicies()
+    print(f"Molecule Indices: {mol_indicies}")
+    
+    sampling = Metropolis()
+    
+    # Create a displacement move for the LJ stack
+    transMove = MolTranslate(
+        [box], 
+    )
+
+    timestart = time()
+    for imove in range(1000):
+        accept = transMove.full_move(box, sampling)
+    timeend = time()
+    print(f"Time taken for 1000 moves: {timeend - timestart} seconds")
+
+
+#-------------------------------
 
 if __name__ == "__main__":
     print("Running LJ Stack tests...")

@@ -64,7 +64,7 @@ class Metropolis(AcceptRule):
             accept = True
         
         return accept
-    
+    # ---------------------------------------------------------------------------
     def make_decision_2box(self, trial_box1, trial_box2, e_diff1, e_diff2, 
                           disp1, disp2, in_prob=None, log_prob=None, extra_in=None):
         """
