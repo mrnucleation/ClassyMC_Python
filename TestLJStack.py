@@ -93,12 +93,17 @@ def test_lj_stack():
         [box], 
     )
 
+    
     timestart = time()
     for imove in range(1000):
         accept = transMove.full_move(box, sampling)
     timeend = time()
+    E_culmative = box.ETotal
     print(f"Time taken for 1000 moves: {timeend - timestart} seconds")
-
+    #Recompute the energy after all moves
+    success = box.compute_energy()
+    assert success, "Energy computation failed after moves"
+    assert np.isclose(box.ETotal, E_culmative), "Cumulative energy does not match computed energy"
 
 #-------------------------------
 

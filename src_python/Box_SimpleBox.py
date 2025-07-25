@@ -129,20 +129,12 @@ class SimpleBox(SimBox):
             Dict[str, Any]: Dictionary containing molecule details.
         """
         
-        print(self.MolIndx)
-        print(molIndx)
         
         mask = np.where(self.MolIndx == molIndx)
-        print(mask)
-        
-        #Get the indices of the atoms in the molecule by using the mask is True
-        
-        
-        
         #Get atom indices and positions
         atoms = self.atoms[mask]
         molType = self.MolType[molIndx]
-        atomindicies = np.array([i for i, x in enumerate(mask) if x], dtype=int)
+        atomindicies = mask
         
         
         
