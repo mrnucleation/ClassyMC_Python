@@ -2,35 +2,16 @@
 import time
 
 # Note: The following imports assume corresponding Python modules exist.
-# from ParallelVar import myid, ierror, nout
-# from VarPrecision import dp
-# from self.AnalysisData import self.AnalysisArray
-# from BoxData import BoxList
-# from CommonSampling import Sampling
-# from Common_MolInfo import nAtomTypes, nMolTypes, MolData
-# from MCMoveData import self.Moves, MoveProb
-# from MoveClassDef import MCMove
-# from MultiBoxMoveDef import MCMultiBoxMove
-# from Output_DumpCoords import Output_DumpData
-# from RandomGen import sgrnd, grnd, ListRNG
-# from SimControl import nMoves, nCycles, screenfreq, configfreq, energyCheck, TimeStart
-# from Units import outEngUnit
+
+
+from src_python
 
 from random import choice
 from typing import List, Optional
 
-# Placeholder function for missing ListRNG
-def ListRNG(probabilities):
-    """Simple implementation of weighted random selection"""
-    from random import random
-    cumulative = 0.0
-    r = random()
-    for i, prob in enumerate(probabilities):
-        cumulative += prob
-        if r <= cumulative:
-            return i + 1  # Return 1-indexed
-    return len(probabilities)  # Fallback
 
+
+# =============================================================================
 class SimMonteCarlo:
     def __init__(self, nCycles, nMoves, screenfreq, configfreq, energyCheck):
         self.nCycles = nCycles
@@ -49,7 +30,7 @@ class SimMonteCarlo:
         self.MolData = []           # Molecular data
         self.TimeStart = time.time()  # Simulation start time
     
-
+    # ---------------------------------------------------------------------------
     def run_monte_carlo(self):
         iCycle = 0
         iMove = 0
@@ -90,12 +71,9 @@ class SimMonteCarlo:
                     curmove = self.Moves[moveNum]
 
                     # Perform selected move
-                    if nBoxes > 1:
-                        self.Moves[moveNum].GetBoxProb(boxProb)
-                        boxNum = ListRNG(boxProb)
-                    else:
-                        boxNum = 1
-                    accept = curmove.FullMove(self.BoxList[boxNum - 1], accept)
+                    self.Moves[moveNum].GetBoxProb(boxProb)
+                    box = choice(self.BoxList, p=boxProb)
+                    accept = curmove.FullMove(box, self.Sampling, accept)
 
                     if accept:
                         self.update(accept)
@@ -132,15 +110,18 @@ class SimMonteCarlo:
         if self.AnalysisArray is not None:
             for analysis in self.AnalysisArray:
                 analysis.func.Finalize()
-
-    #----------------------------------------------------------------------------
+    # ---------------------------------------------------------------------------
+    
+    # ---------------------------------------------------------------------------
     def analyze(self, iCycle, iMove, accept, moveloop):
         if self.AnalysisArray is not None:
             for analysis in self.AnalysisArray:
                 if analysis.func.perMove == moveloop:
                     if (iCycle % analysis.func.UpdateFreq == 0) or analysis.func.perMove:
                         analysis.func.Compute(accept)
-    #----------------------------------------------------------------------------
+    # ---------------------------------------------------------------------------
+    
+    # ---------------------------------------------------------------------------
     def screen_out(self, iCycle, iMove):
         print(f"    ----------------- Cycle Number: {iCycle} ----------------------")
         current_time = time.time()
@@ -168,7 +149,9 @@ class SimMonteCarlo:
         for move in self.Moves:
             move.ScreenOut()
         print()
-
+    # ---------------------------------------------------------------------------
+    
+    # ---------------------------------------------------------------------------
     def maintenance(self, iCycle, iMove):
         if self.Sampling is not None and hasattr(self.Sampling, 'maintFreq'):
             if iCycle % self.Sampling.maintFreq == 0:
@@ -189,12 +172,16 @@ class SimMonteCarlo:
         for move in self.Moves:
             if iCycle % move.move.maintFreq == 0:
                 move.move.Maintenance()
-
+    # ---------------------------------------------------------------------------
+    
+    # ---------------------------------------------------------------------------
     def trajectory(self, iCycle, iMove):
         if self.TrajArray is not None:
             for traj in self.TrajArray:
                 if iCycle % traj.traj.outfreq == 0:
                     traj.WriteFrame(iCycle)
+    # ---------------------------------------------------------------------------
+    
     # ---------------------------------------------------------------------------
     def update(self, accept):
         assert isinstance(accept, bool), "Accept must be a boolean value"
@@ -214,7 +201,9 @@ class SimMonteCarlo:
             box.Update()
         for move in self.Moves:
             move.Update()
-
+    # ---------------------------------------------------------------------------
+    
+    # ---------------------------------------------------------------------------
     def safety_check(self):
         if not self.MolData:
             raise RuntimeError("CRITICAL ERROR! Molecular Topology Information has not been defined!")
@@ -245,7 +234,9 @@ class SimMonteCarlo:
                 move.move.SafetyCheck()
         else:
             print("WARNING! No Monte Carlo moves have been defined!")
-
+    # ---------------------------------------------------------------------------
+    
+    # ---------------------------------------------------------------------------
     def prologue(self):
         for mol in self.MolData:
             if getattr(mol, 'molConstruct', None):
@@ -270,7 +261,9 @@ class SimMonteCarlo:
             box.box.Prologue()
         for move in self.Moves:
             move.move.Prologue()
-
+    # ---------------------------------------------------------------------------
+    
+    # ---------------------------------------------------------------------------
     def epilogue(self):
         for box in self.BoxList:
             box.Epilogue()
@@ -294,3 +287,5 @@ class SimMonteCarlo:
 
         for move in self.Moves:
             move.Epilogue()
+    # ---------------------------------------------------------------------------
+# =============================================================================

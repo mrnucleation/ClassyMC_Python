@@ -21,7 +21,6 @@ class Displacement:
         self.molType = molType
         self.molIndx = molIndx
         self.atmIndicies = atmIndicies
-        # New positions of atoms
         self.X = newPositions
 # =============================================================================
         
