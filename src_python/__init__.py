@@ -26,7 +26,7 @@ from src_python.Sampling_AcceptNone import AcceptNone
 from src_python.Sampling_MinMetrop import MinMetrop
 
 # Simulation control
-from src_python.SIm_MonteCarlo import SimMonteCarlo
+from src_python.Sim_MonteCarlo import SimMonteCarlo
 
 # Common modules
 from src_python.CommonSampling import set_sampling, get_sampling, has_sampling
