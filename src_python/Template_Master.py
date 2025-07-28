@@ -40,3 +40,6 @@ class ClassyClass:
     def process_io(self, line):
         """Process input/output commands - override in subclasses"""
         return 0 
+    
+    def screenout(self):
+        pass

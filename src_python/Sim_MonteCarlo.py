@@ -3,9 +3,6 @@ import time
 
 # Note: The following imports assume corresponding Python modules exist.
 
-
-from src_python
-
 from random import choice
 from typing import List, Optional
 
@@ -88,9 +85,9 @@ class SimMonteCarlo:
             # Periodic outputs and checks
             if iCycle % screenfreq == 0:
                 self.screen_out(iCycle, iMove)
-            if energyCheck > 0 and iCycle % energyCheck == 0:
-                for boxIdx in range(nBoxes):
-                    self.BoxList[boxIdx].EnergySafetyCheck()
+            #if energyCheck > 0 and iCycle % energyCheck == 0:
+            #    for boxIdx in range(nBoxes):
+            #        self.BoxList[boxIdx].Energysafety_check()
 
             # Per-cycle analysis and maintenance
             self.analyze(iCycle, iMove, accept, False)
@@ -102,7 +99,7 @@ class SimMonteCarlo:
         print("=======================================")
         print("     Simulation End")
         print("=======================================")
-        print("     Beginning Epilogue.....")
+        print("     Beginning epilogue.....")
 
         self.epilogue()
 
@@ -117,7 +114,7 @@ class SimMonteCarlo:
         if self.AnalysisArray is not None:
             for analysis in self.AnalysisArray:
                 if analysis.func.perMove == moveloop:
-                    if (iCycle % analysis.func.UpdateFreq == 0) or analysis.func.perMove:
+                    if (iCycle % analysis.func.updateFreq == 0) or analysis.func.perMove:
                         analysis.func.Compute(accept)
     # ---------------------------------------------------------------------------
     
@@ -134,20 +131,20 @@ class SimMonteCarlo:
                 print(f"   Time per Cycle: {time_per_cycle:.3e} sec")
 
         if self.Sampling is not None:
-            self.Sampling.ScreenOut()
+            self.Sampling.screenout()
         if self.AnalysisArray is not None:
             for analysis in self.AnalysisArray:
-                analysis.func.ScreenOut()
+                analysis.func.screenout()
         if self.TrajArray is not None:
             for traj in self.TrajArray:
-                traj.ScreenOut()
+                traj.screenout()
 
         for ecalc in self.EnergyCalculator:
-            ecalc.ScreenOut()
+            ecalc.screenout()
         for box in self.BoxList:
-            box.ScreenOut()
+            box.screenout()
         for move in self.Moves:
-            move.ScreenOut()
+            move.screenout()
         print()
     # ---------------------------------------------------------------------------
     
@@ -155,23 +152,23 @@ class SimMonteCarlo:
     def maintenance(self, iCycle, iMove):
         if self.Sampling is not None and hasattr(self.Sampling, 'maintFreq'):
             if iCycle % self.Sampling.maintFreq == 0:
-                self.Sampling.Maintenance()
+                self.Sampling.maintenance()
 
         if self.AnalysisArray is not None:
             for analysis in self.AnalysisArray:
                 if iCycle % analysis.func.maintFreq == 0:
-                    analysis.func.Maintenance()
+                    analysis.func.maintenance()
 
         if self.TrajArray is not None:
             for traj in self.TrajArray:
                 if iCycle % traj.traj.maintFreq == 0:
-                    traj.traj.Maintenance()
+                    traj.traj.maintenance()
 
         for box in self.BoxList:
-            box.box.Maintenance()
+            box.maintenance()
         for move in self.Moves:
             if iCycle % move.move.maintFreq == 0:
-                move.move.Maintenance()
+                move.move.maintenance()
     # ---------------------------------------------------------------------------
     
     # ---------------------------------------------------------------------------
@@ -188,104 +185,104 @@ class SimMonteCarlo:
         if not accept:
             return
         if self.Sampling is not None:
-            self.Sampling.Update()
+            self.Sampling.update()
         if self.AnalysisArray is not None:
             for analysis in self.AnalysisArray:
-                analysis.Update()
+                analysis.update()
         if self.TrajArray is not None:
             for traj in self.TrajArray:
-                traj.Update()
+                traj.update()
         for ecalc in self.EnergyCalculator:
-            ecalc.Update()
+            ecalc.update()
         for box in self.BoxList:
-            box.Update()
+            box.update()
         for move in self.Moves:
-            move.Update()
+            move.update()
     # ---------------------------------------------------------------------------
     
     # ---------------------------------------------------------------------------
     def safety_check(self):
-        if not self.MolData:
-            raise RuntimeError("CRITICAL ERROR! Molecular Topology Information has not been defined!")
-        for mol in self.MolData:
-            if not getattr(mol, 'molConstruct', None):
-                print("WARNING! Molecule reconstructor is not defined in the forcefield file!")
-            else:
-                mol.molConstruct.SafetyCheck()
+        #if not self.MolData:
+        #    raise RuntimeError("CRITICAL ERROR! Molecular Topology Information has not been defined!")
+        #for mol in self.MolData:
+        #    if not getattr(mol, 'molConstruct', None):
+        #        print("WARNING! Molecule reconstructor is not defined in the forcefield file!")
+        #    else:
+        #        mol.molConstruct.safety_check()
 
         if not self.Sampling:
             raise RuntimeError("CRITICAL ERROR! Sampling Rule has not been defined!")
-        self.Sampling.SafetyCheck()
+        self.Sampling.safety_check()
 
         if self.AnalysisArray is not None:
             for analysis in self.AnalysisArray:
-                analysis.func.SafetyCheck()
+                analysis.safety_check()
         if self.TrajArray is not None:
             for traj in self.TrajArray:
-                traj.traj.SafetyCheck()
+                traj.safety_check()
 
         if not self.BoxList:
             raise RuntimeError("CRITICAL ERROR! No Simulation Boxes have been defined!")
         for box in self.BoxList:
-            box.box.SafetyCheck()
+            box.safety_check()
 
         if self.Moves:
             for move in self.Moves:
-                move.move.SafetyCheck()
+                move.safety_check()
         else:
             print("WARNING! No Monte Carlo moves have been defined!")
     # ---------------------------------------------------------------------------
     
     # ---------------------------------------------------------------------------
     def prologue(self):
-        for mol in self.MolData:
-            if getattr(mol, 'molConstruct', None):
-                mol.molConstruct.Prologue()
-            if hasattr(mol, 'miscdata'):
-                for misc in mol.MiscData:
-                    misc.miscFF.Prologue()
+        #for mol in self.MolData:
+        #    if getattr(mol, 'molConstruct', None):
+        #        mol.molConstruct.prologue()
+        #    if hasattr(mol, 'miscdata'):
+        #        for misc in mol.MiscData:
+        #            misc.miscFF.prologue()
 
         if self.AnalysisArray is not None:
             for analysis in self.AnalysisArray:
-                analysis.func.Prologue()
+                analysis.prologue()
         if self.Sampling is not None:
-            self.Sampling.Prologue()
+            self.Sampling.prologue()
 
         if self.TrajArray is not None:
             for traj in self.TrajArray:
-                traj.traj.Prologue()
+                traj.prologue()
 
         for ecalc in self.EnergyCalculator:
-            ecalc.method.Prologue()
+            ecalc.prologue()
         for box in self.BoxList:
-            box.box.Prologue()
+            box.prologue()
         for move in self.Moves:
-            move.move.Prologue()
+            move.prologue()
     # ---------------------------------------------------------------------------
     
     # ---------------------------------------------------------------------------
     def epilogue(self):
         for box in self.BoxList:
-            box.Epilogue()
+            box.epilogue()
         print("-----------------------")
 
         if self.Sampling is not None:
-            self.Sampling.Epilogue()
+            self.Sampling.epilogue()
         for mol in self.MolData:
             if getattr(mol, 'molConstruct', None):
-                mol.Epilogue()
+                mol.epilogue()
             if hasattr(mol, 'miscdata'):
                 for misc in mol.MiscData:
-                    misc.Epilogue()
+                    misc.epilogue()
 
         if self.AnalysisArray is not None:
             for analysis in self.AnalysisArray:
-                analysis.Epilogue()
+                analysis.epilogue()
         if self.TrajArray is not None:
             for traj in self.TrajArray:
-                traj.Epilogue()
+                traj.epilogue()
 
         for move in self.Moves:
-            move.Epilogue()
+            move.epilogue()
     # ---------------------------------------------------------------------------
 # =============================================================================

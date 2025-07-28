@@ -140,25 +140,25 @@ class MolTranslate(MCMove):
     #----------------------------------------------------------------------------
     def prologue(self):
         """Prints information at the start of a simulation block."""
-        print(f"(Molecule Translate) Maximum Displacement: {self.max_dist:15.8f}", file=nout)
+        print(f"(Molecule Translate) Maximum Displacement: {self.max_dist:15.8f}")
     #----------------------------------------------------------------------------
     def epilogue(self):
         """Prints summary statistics at the end of a simulation block."""
-        print(file=nout)
-        print(f"Molecule Translation Moves Accepted:  {round(self.accpt):15d}", file=nout)
-        print(f"Molecule Translation Moves Attempted: {round(self.atmps):15d}", file=nout)
+        print()
+        print(f"Molecule Translation Moves Accepted:  {round(self.accpt):15d}")
+        print(f"Molecule Translation Moves Attempted: {round(self.atmps):15d}")
         
         accpt_rate = self.get_accept_rate()
-        print(f"Molecule Translation Acceptance Rate: {accpt_rate:15.8f}", file=nout)
+        print(f"Molecule Translation Acceptance Rate: {accpt_rate:15.8f}")
         
         if self.tuneMax:
             dist_str = " ".join([f"{d:15.8f}" for d in self.boxmax_dist])
-            print(f"Final Maximum Displacement: {dist_str}", file=nout)
+            print(f"Final Maximum Displacement: {dist_str}")
 
         if self.verbose:
-            print(f"Molecule Translation, Rejections due to overlap:         {self.ovlaprej:15d}", file=nout)
-            print(f"Molecule Translation, Rejections due to constraint:      {self.constrainrej:15d}", file=nout)
-            print(f"Molecule Translation, Rejections due to detailed balance:{self.detailedrej:15d}", file=nout)
+            print(f"Molecule Translation, Rejections due to overlap:         {self.ovlaprej:15d}")
+            print(f"Molecule Translation, Rejections due to constraint:      {self.constrainrej:15d}")
+            print(f"Molecule Translation, Rejections due to detailed balance:{self.detailedrej:15d}")
     #----------------------------------------------------------------------------
     def update(self):
         """Updates box probabilities based on the number of molecules."""
