@@ -44,7 +44,7 @@ class MCMove(ClassyClass):
         pass  # Default implementation does nothing
     
     @abstractmethod
-    def full_move(self, trial_box):
+    def full_move(self, trial_box, sampling) -> bool:
         """
         Corresponds to MCMove_FullMove
         Perform the Monte Carlo move

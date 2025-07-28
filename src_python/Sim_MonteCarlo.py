@@ -26,6 +26,8 @@ class SimMonteCarlo:
         self.EnergyCalculator = []  # Energy calculation functions
         self.MolData = []           # Molecular data
         self.TimeStart = time.time()  # Simulation start time
+        
+        self.moveweights = []
     
     # ---------------------------------------------------------------------------
     def run_monte_carlo(self):
@@ -60,6 +62,10 @@ class SimMonteCarlo:
         configfreq = 1000
         energyCheck = 1000
 
+        # Check if the move weights are defined
+        if len(self.moveweights) == 0:
+            self.moveweights = [1.0] * len(self.Moves)
+
         for iCycle in range(self.nCycles):
             for iMove in range(self.nMoves):
                 accept = True
@@ -68,19 +74,19 @@ class SimMonteCarlo:
                     curmove = self.Moves[moveNum]
 
                     # Perform selected move
-                    self.Moves[moveNum].GetBoxProb(boxProb)
-                    box = choice(self.BoxList, p=boxProb)
-                    accept = curmove.FullMove(box, self.Sampling, accept)
+                    self.Moves[moveNum].get_box_prob(boxProb)
+                    box = choice(self.BoxList)
+                    accept = curmove.full_move(box, self.Sampling)
 
                     if accept:
                         self.update(accept)
 
                     # Per-move analysis and neighbor-list checks
                     self.analyze(iCycle, iMove, accept, True)
-                    if accept:
-                        for iBox in range(nBoxes):
-                            if boxNum < 0 or boxNum == iBox + 1:
-                                self.BoxList[iBox].CheckLists()
+                    #if accept:
+                    #    for iBox in range(nBoxes):
+                    #        if boxNum < 0 or boxNum == iBox + 1:
+                    #            self.BoxList[iBox].CheckLists()
 
             # Periodic outputs and checks
             if iCycle % screenfreq == 0:
@@ -167,8 +173,8 @@ class SimMonteCarlo:
         for box in self.BoxList:
             box.maintenance()
         for move in self.Moves:
-            if iCycle % move.move.maintFreq == 0:
-                move.move.maintenance()
+            if iCycle % move.maintFreq == 0:
+                move.maintenance()
     # ---------------------------------------------------------------------------
     
     # ---------------------------------------------------------------------------

@@ -150,6 +150,8 @@ def test_sim_monte_carlo_minimal():
 
     # Load coordinates
     box = load_coords("SimpleLJ.clssy", [LJ_type])
+    box.temp = 0.6
+    box.beta = 1.0 / box.temp
     
     # Define LJ Forcefield
     lj_ff = LJ_Cut(nAtomTypes=1)
@@ -162,8 +164,8 @@ def test_sim_monte_carlo_minimal():
     
     # Create minimal SimMonteCarlo instance
     sim_mc = SimMonteCarlo(
-        nCycles=5,           # Small number of cycles
-        nMoves=5,            # Small number of moves per cycle
+        nCycles=100,           # Small number of cycles
+        nMoves=10,            # Small number of moves per cycle
         screenfreq=1,        # Frequent screen output
         configfreq=5,        # Configuration output frequency
         energyCheck=1        # Frequent energy checks
@@ -177,8 +179,8 @@ def test_sim_monte_carlo_minimal():
     
     print("Minimal setup complete. Running simulation...")
     
+    sim_mc.run_monte_carlo()
     try:
-        sim_mc.run_monte_carlo()
         print("Minimal simulation completed successfully!")
     except Exception as e:
         print(f"Error in minimal simulation: {e}")

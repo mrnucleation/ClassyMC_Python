@@ -63,9 +63,9 @@ class MolTranslate(MCMove):
             print("No molecules available for translation.")
             return False
 
-        print(f"Available molecules for translation: {candidates}")
+        #print(f"Available molecules for translation: {candidates}")
         targetMol = choice(candidates)
-        print(f"Selected molecule for translation: {targetMol}")
+        #print(f"Selected molecule for translation: {targetMol}")
         molProperties = trial_box.get_moldetails(targetMol)
         
         oldpos = molProperties['atoms']
@@ -82,8 +82,8 @@ class MolTranslate(MCMove):
             newPositions=x_new
         )
  
-        print(f"Proposed move for molecule {targetMol} of type {molType}:")
-        print(f"Atom indices: {atomindices}")       
+        #print(f"Proposed move for molecule {targetMol} of type {molType}:")
+        #print(f"Atom indices: {atomindices}")       
 
         # --- Check constraints and calculate energy ---
         if not trial_box.check_constraint(disp):
@@ -162,11 +162,11 @@ class MolTranslate(MCMove):
     #----------------------------------------------------------------------------
     def update(self):
         """Updates box probabilities based on the number of molecules."""
-        if self.proportional:
-            n_mols = np.array([bw.box.nMolTotal for bw in BoxArray], dtype=dp)
-            norm = np.sum(n_mols)
-            if norm > 0:
-                self.boxProb = n_mols / norm
+        #if self.proportional:
+        #    n_mols = np.array([bw.box.nMolTotal for bw in BoxArray], dtype=dp)
+        #    norm = np.sum(n_mols)
+        #    if norm > 0:
+        #        self.boxProb = n_mols / norm
     #----------------------------------------------------------------------------
     def process_io(self, line: str):
         """
