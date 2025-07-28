@@ -240,7 +240,7 @@ class EasyPairCut(ForceField):
         #Compute the squared distances of the new positions
         rx = cut_list - atoms_new
         rx = curbox.boundary(rx)
-        rsq = np.sum(rx**2, axis=1)
+        rsq = np.sum(rx**2, axis=1).reshape(-1)
         
         # Check if any pairs are within the cutoff
         if self.rMinTable is not None:
@@ -253,15 +253,15 @@ class EasyPairCut(ForceField):
         
         within_cutoff = rsq < self.rCutSq
         rsq = rsq[within_cutoff]
-        jAtomTypes = jAtomTypes[within_cutoff]
+        jAtomTypes_new = jAtomTypes[within_cutoff]
 
-        E_pair = self.pair_function(rsq, curbox.AtomType[disp.atmIndicies], jAtomTypes)
+        E_pair = self.pair_function(rsq, curbox.AtomType[disp.atmIndicies], jAtomTypes_new)
         E_Diff += np.sum(E_pair)
         
         #Compute the squared distances of the old positions
         rx_old = atoms[disp.atmIndicies] - cut_list
         rx_old = curbox.boundary(rx_old)
-        rsq_old = np.sum(rx_old**2, axis=1)
+        rsq_old = np.sum(rx_old**2, axis=1).reshape(-1)
         within_cutoff_old = rsq_old < self.rCutSq
         rsq_old = rsq_old[within_cutoff_old]
         jAtomTypes_old = jAtomTypes[within_cutoff_old]

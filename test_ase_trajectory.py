@@ -14,16 +14,18 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src_python'))
 
 # Import using absolute paths to avoid relative import issues
 import Box_SimpleBox
+import Box_CubeBox
 import Sim_MonteCarlo
 import MC_Move_MolTranslation
 import Sampling_Metropolis
 import FF_EasyPair_Cut
 
 SimpleBox = Box_SimpleBox.SimpleBox
+CubeBox = Box_CubeBox.CubeBox
 SimMonteCarlo = Sim_MonteCarlo.SimMonteCarlo
-MCMoveMolTranslation = MC_Move_MolTranslation.MCMoveMolTranslation
-SamplingMetropolis = Sampling_Metropolis.SamplingMetropolis
-FFEasyPairCut = FF_EasyPair_Cut.FFEasyPairCut
+MCMoveMolTranslation = MC_Move_MolTranslation.MolTranslate
+SamplingMetropolis = Sampling_Metropolis.Metropolis
+FFEasyPairCut = FF_EasyPair_Cut.EasyPairCut
 
 def create_test_molecules():
     """Create test molecule definitions for a simple simulation"""
@@ -79,8 +81,8 @@ def test_ase_trajectory():
         try:
             from ase.io import write
             # Write a trajectory file
-            write('test_trajectory.xyz', atoms_obj, format='xyz')
-            print("Successfully wrote trajectory file: test_trajectory.xyz")
+            write('test_trajectory.poscar', atoms_obj, format='vasp')
+            print("Successfully wrote trajectory file: test_trajectory.poscar")
             
             # Test multiple frames (simulating a trajectory)
             trajectory = [atoms_obj]
@@ -89,8 +91,8 @@ def test_ase_trajectory():
                 new_atoms.positions += np.random.normal(0, 0.1, new_atoms.positions.shape)
                 trajectory.append(new_atoms)
             
-            write('test_multi_frame.xyz', trajectory, format='xyz')
-            print("Successfully wrote multi-frame trajectory: test_multi_frame.xyz")
+            write('test_multi_frame.poscar', trajectory, format='vasp')
+            print("Successfully wrote multi-frame trajectory: test_multi_frame.poscar")
             
         except Exception as e:
             print(f"Error writing trajectory: {e}")
@@ -130,7 +132,7 @@ def test_sim_monte_carlo_with_ase():
     sim.BoxList = [box]
     
     # Create a simple move (translation)
-    move = MCMoveMolTranslation()
+    move = MCMoveMolTranslation([box])
     move.max_displacement = 0.5
     sim.Moves = [move]
     
@@ -147,17 +149,18 @@ def test_sim_monte_carlo_with_ase():
     box.EFunc = [ff]
     
     print("Running Monte Carlo simulation...")
+    sim.run_monte_carlo()
+    print("Simulation completed successfully!")
+    
+    # Generate ASE trajectory from final state
+    print("\nGenerating ASE trajectory from final simulation state...")
+    final_atoms = box.to_ase_atoms()   
     try:
-        sim.run_monte_carlo()
-        print("Simulation completed successfully!")
-        
-        # Generate ASE trajectory from final state
-        print("\nGenerating ASE trajectory from final simulation state...")
-        final_atoms = box.to_ase_atoms()
+
         if final_atoms is not None:
             from ase.io import write
-            write('final_simulation_state.xyz', final_atoms, format='xyz')
-            print("Successfully wrote final simulation state: final_simulation_state.xyz")
+            write('final_simulation_state.poscar', final_atoms, format='vasp')
+            print("Successfully wrote final simulation state: final_simulation_state.poscar")
             return True
         else:
             print("Failed to generate ASE trajectory from simulation")
@@ -184,7 +187,7 @@ if __name__ == "__main__":
         print("Some tests failed. Check the output above for details.")
     
     print("\nYou can now visualize the generated trajectory files:")
-    print("  - test_trajectory.xyz (single frame)")
-    print("  - test_multi_frame.xyz (multi-frame trajectory)")
-    print("  - final_simulation_state.xyz (final simulation state)")
+    print("  - test_trajectory.poscar (single frame)")
+    print("  - test_multi_frame.poscar (multi-frame trajectory)")
+    print("  - final_simulation_state.poscar (final simulation state)")
     print("\nUse ASE visualization tools or other molecular viewers to inspect these files.")

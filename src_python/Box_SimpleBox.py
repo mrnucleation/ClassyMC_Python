@@ -564,10 +564,10 @@ class SimpleBox(SimBox):
                 neighList.build_list(i)
         
         # Compute center of mass for all molecules
-        for iMol in range(self.maxMol):
-            molStart = self.MolStartIndx[iMol]
-            if self.MolSubIndx[molStart] < self.NMol[self.MolType[molStart]]:
-                self.compute_cm(iMol)
+        #for iMol in range(self.maxMol):
+        #    molStart = self.MolStartIndx[iMol]
+        #    if self.MolSubIndx[molStart] < self.NMol[self.MolType[molStart]]:
+        #        self.compute_cm(iMol)
         
         print(f"Box {self.boxID} initialized with {self.nMolTotal} molecules")
         print(f"Box {self.boxID} Total Energy: {self.ETotal}")
@@ -898,4 +898,6 @@ class SimpleBox(SimBox):
         )
         print(ase_atoms)
         
+        
+        return ase_atoms
 # =============================================================================

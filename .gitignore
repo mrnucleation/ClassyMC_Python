@@ -52,3 +52,8 @@ tests/__pycache__/test_MC_Move_MolTranslation.cpython-310-pytest-8.4.1.pyc
 src_python/__pycache__/CoordinateTypes.cpython-310.pyc
 src_python/__pycache__/Molecule_Definition.cpython-310.pyc
 src_python/__pycache__/Script_LoadCoordinates.cpython-310.pyc
+final_simulation_state.poscar
+test_multi_frame.xyz
+test_trajectory.xyz
+test_trajectory.poscar
+final_simulation_state.xyz
