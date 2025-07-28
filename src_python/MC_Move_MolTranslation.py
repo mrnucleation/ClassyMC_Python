@@ -1,9 +1,9 @@
-from .Template_MCMove import MCMove
+from src_python.Template_MCMove import MCMove
 import numpy as np
 from random import random, choice
-from .VarPrecision import dp
-from .Box_SimpleBox import SimpleBox
-from .CoordinateTypes import Displacement
+from src_python.VarPrecision import dp
+from src_python.Box_SimpleBox import SimpleBox
+from src_python.CoordinateTypes import Displacement
 import math
 
 #=======================================================================

@@ -11,9 +11,9 @@ import numpy as np
 import sys
 from abc import ABC, abstractmethod
 from typing import Tuple, List, Dict, Optional, Any
-from .Template_Forcefield import ForceField
-from .VarPrecision import dp
-from .CoordinateTypes import Displacement
+from src_python.Template_Forcefield import ForceField
+from src_python.VarPrecision import dp
+from src_python.CoordinateTypes import Displacement
 
 #================================================================================
 class EasyPairCut(ForceField):

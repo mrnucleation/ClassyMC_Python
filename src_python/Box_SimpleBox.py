@@ -10,9 +10,9 @@ or in conjunction with a hard wall constraint to make a non-periodic condition.
 import numpy as np
 import sys
 from abc import ABC, abstractmethod
-from .Template_SimBox import SimBox
-from .VarPrecision import dp
-from .CoordinateTypes import Displacement
+from src_python.Template_SimBox import SimBox
+from src_python.VarPrecision import dp
+from src_python.CoordinateTypes import Displacement
 from typing import Optional, List, Dict, Tuple, Any, Union
 
 
@@ -862,4 +862,40 @@ class SimpleBox(SimBox):
             'coordinates': coordinates,
             'center_of_mass': center_of_mass
         }
+    
+    # -------------------------------------------------------------------------
+    def to_ase_atoms(self):
+        """
+        Convert the simulation box to an ASE Atoms object for visualization and analysis.
+        
+        This method creates an ASE Atoms object containing all active atoms in the box,
+        with their positions, atom types, and cell information. The atom types are mapped
+        from the internal atom type dictionary to chemical symbols.
+        
+        Returns:
+            ase.Atoms: ASE Atoms object containing the box's atomic configuration
+        """
+ 
+        # Check if ASE is available
+        try:
+            from ase import Atoms
+        except ImportError:
+            raise ImportError("ASE is not installed. Please install ASE to use this feature.")
+        
+        if isinstance(self, SimpleBox):
+            cell = None
+            pbc = False
+        else:
+            cell = self.cell if hasattr(self, 'cell') else None
+            pbc = True
+            
+            
+        ase_atoms = Atoms(
+            symbols=[self.MolData[self.MolType[i]].atomtypes[self.AtomSubIndx[i]] for i in range(self.nMaxAtoms)],
+            positions=self.atoms,
+            cell=cell,  # No periodic boundary conditions by default
+            pbc=pbc  # No periodic boundary conditions
+        )
+        print(ase_atoms)
+        
 # =============================================================================

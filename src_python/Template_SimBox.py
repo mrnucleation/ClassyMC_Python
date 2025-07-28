@@ -176,15 +176,6 @@ class SimBox(ClassyClass):
         }
         return lookup_table.get(property_name.lower(), lambda: 0.0)()
     
-    def is_active(self, atom_indx):
-        """Corresponds to IsActive"""
-        if atom_indx >= self.nMaxAtoms:
-            return False
-        mol_indx = self.MolIndx[atom_indx]
-        mol_type = self.MolType[atom_indx]
-        mol_sub_indx = self.MolSubIndx[atom_indx]
-        return mol_sub_indx <= self.NMol[mol_type]
-    
     def update_vol(self, scalar):
         """Corresponds to UpdateVol"""
         pass
