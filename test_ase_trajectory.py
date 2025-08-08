@@ -48,8 +48,11 @@ def test_ase_trajectory():
     # Create molecule definitions
     mol_data = create_test_molecules()
     
-    # Create a simple box with 10 argon atoms
-    box = SimpleBox(molData=mol_data, NMolMax=[10], NMol=[10])
+    # Create a cubic box with 10 argon atoms
+    box = CubeBox(molData=mol_data, NMolMax=[10], NMol=[10])
+    
+    # Set box dimensions (required for cubic box)
+    box.load_dimension([10.0])  # 10x10x10 box
     
     # Initialize the box arrays (this would normally be done by the simulation)
     box.nMaxAtoms = 10
@@ -113,7 +116,10 @@ def test_sim_monte_carlo_with_ase():
     mol_data = create_test_molecules()
     
     # Create simulation box
-    box = SimpleBox(molData=mol_data, NMolMax=[5], NMol=[5])
+    box = CubeBox(molData=mol_data, NMolMax=[5], NMol=[5])
+    
+    # Set box dimensions (required for cubic box)
+    box.load_dimension([5.0])  # 5x5x5 box
     
     # Initialize box arrays
     box.nMaxAtoms = 5

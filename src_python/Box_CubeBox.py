@@ -7,8 +7,10 @@ Implements a cubic periodic boundary condition simulation box.
 
 import numpy as np
 import sys
-from .Box_SimpleBox import SimpleBox
-from .VarPrecision import dp
+import Box_SimpleBox
+from VarPrecision import dp
+
+SimpleBox = Box_SimpleBox.SimpleBox
 
 def GetXCommand(line, position):
     """Simple implementation of GetXCommand for parsing input"""
