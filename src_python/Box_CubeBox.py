@@ -7,8 +7,8 @@ Implements a cubic periodic boundary condition simulation box.
 
 import numpy as np
 import sys
-import Box_SimpleBox
-from VarPrecision import dp
+from . import Box_SimpleBox
+from .VarPrecision import dp
 
 SimpleBox = Box_SimpleBox.SimpleBox
 
