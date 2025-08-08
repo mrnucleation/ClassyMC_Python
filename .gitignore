@@ -57,3 +57,5 @@ test_multi_frame.xyz
 test_trajectory.xyz
 test_trajectory.poscar
 final_simulation_state.xyz
+src_python/__pycache__/Sim_MonteCarlo.cpython-310.pyc
+src_python/__pycache__/Sim_MonteCarlo.cpython-310.pyc

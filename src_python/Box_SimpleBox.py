@@ -864,6 +864,36 @@ class SimpleBox(SimBox):
         }
     
     # -------------------------------------------------------------------------
+    def screenout(self):
+        """
+        Display summary information about the simulation box to the screen.
+        Shows number of particles, energy, and other relevant properties.
+        """
+        print(f"  Box ID: {self.boxID}")
+        print(f"  Box Type: {self.boxStr}")
+        print(f"  Number of Molecules: {self.nMolTotal}")
+        print(f"  Number of Atoms: {self.nAtoms}")
+        print(f"  Total Energy: {self.ETotal:.6f}")
+        print(f"  Intermolecular Energy: {self.E_Inter:.6f}")
+        print(f"  Intramolecular Energy: {self.E_Intra:.6f}")
+        print(f"  Enthalpy: {self.HTotal:.6f}")
+        if isinstance(self.volume, (list, tuple, np.ndarray)):
+            print(f"  Volume: {np.prod(self.volume):.6f}")
+        else:
+            print(f"  Volume: {self.volume:.6f}")
+        if isinstance(self.pressure, (list, tuple, np.ndarray)):
+            print(f"  Pressure: {self.pressure[0]:.6f}")
+        else:
+            print(f"  Pressure: {self.pressure:.6f}")
+        if hasattr(self, 'temperature') and self.temperature > 0:
+            print(f"  Temperature: {self.temperature:.6f}")
+        if hasattr(self, 'beta') and self.beta > 0:
+            print(f"  Beta: {self.beta:.6f}")
+        print(f"  Dimensions: {self.nDimensions}D")
+        if hasattr(self, 'boxL') and self.boxL is not None:
+            print(f"  Box Length: {self.boxL}")
+    
+    # -------------------------------------------------------------------------
     def to_ase_atoms(self):
         """
         Convert the simulation box to an ASE Atoms object for visualization and analysis.

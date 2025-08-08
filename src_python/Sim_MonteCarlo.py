@@ -58,9 +58,9 @@ class SimMonteCarlo:
 
         time_start = time.time()
         self.screen_out(iCycle, iMove)
-        screenfreq = 100
-        configfreq = 1000
-        energyCheck = 1000
+        screenfreq = self.screenfreq
+        configfreq = self.configfreq
+        energyCheck = self.energyCheck
 
         # Check if the move weights are defined
         if len(self.moveweights) == 0:
