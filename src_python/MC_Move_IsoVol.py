@@ -53,10 +53,11 @@ class IsoVol(MCMove):
     def full_move(self, trial_box):
         """
         Corresponds to IsoVol_FullMove
-        Perform an isochoric volume change move
+        Perform an isochoric volume change move by creating a new Ortho-Vol object,
+        filling it with appropriate variables, and passing it to the energy routine.
         
         Args:
-            trial_box: SimBox instance
+            trial_box: SimBox instance containing the system to be modified
             
         Returns:
             bool: Whether the move was accepted
@@ -64,62 +65,62 @@ class IsoVol(MCMove):
         self.atmps += 1.0
         self.load_box_info(trial_box, self.disp)
         
-        # Propose volume change
+        # Propose volume change and calculate scaling factors
+        vol_old = trial_box.volume
         if self.style == 1:  # Log scale
             dV = self.maxDv * (2.0 * random() - 1.0)
-            self.disp[0].volNew = trial_box.volume * math.exp(dV)
-            self.disp[0].volOld = trial_box.volume
+            vol_new = vol_old * math.exp(dV)
         elif self.style == 2:  # Linear scale
             dV = self.maxDv * (2.0 * random() - 1.0)
-            self.disp[0].volNew = trial_box.volume + dV
-            self.disp[0].volOld = trial_box.volume
+            vol_new = vol_old + dV
         else:
             raise ValueError(f"Invalid volume change style: {self.style}")
         
         # Check for negative volume
-        if self.disp[0].volNew < 0.0:
+        if vol_new < 0.0:
             return False
         
-        # Calculate scale factors based on box type
-        scale_factor = (self.disp[0].volNew / self.disp[0].volOld) ** (1.0 / 3.0)
-        self.disp[0].xScale = scale_factor
-        self.disp[0].yScale = scale_factor
-        self.disp[0].zScale = scale_factor
+        # Calculate scale factors for each dimension
+        scale_factor = (vol_new / vol_old) ** (1.0 / 3.0)
+        scales = np.array([scale_factor, scale_factor, scale_factor], dtype=dp)
         
-        # Check constraints
-        if not trial_box.check_constraint(self.disp):
+        # Create new Ortho-Vol object with appropriate variables
+        ortho_vol_disp = OrthoVolChange(scales, vol_old, vol_new)
+        
+        # Check constraints with the new displacement object
+        if not trial_box.check_constraint([ortho_vol_disp]):
             self.constrainrej += 1
             return False
         
-        # Calculate energy change
+        # Calculate energy change by passing the new Ortho-Vol object to energy routine
         e_inter, e_intra, e_diff, accept = trial_box.compute_energy_delta(
-            self.disp, self.tempList, self.tempNnei, computeintra=False
+            [ortho_vol_disp], self.tempList, self.tempNnei, computeintra=False
         )
         if not accept:
             self.ovlaprej += 1
             return False
         
         # Check post-energy constraints
-        if not trial_box.check_post_energy(self.disp, e_diff):
+        if not trial_box.check_post_energy([ortho_vol_disp], e_diff):
             self.constrainrej += 1
             return False
         
-        # Calculate probability term
+        # Calculate probability term for acceptance criterion
         if self.style == 1:  # Log scale
-            prob = (trial_box.nMolTotal + 1) * math.log(self.disp[0].volNew / self.disp[0].volOld)
+            prob = (trial_box.nMolTotal + 1) * math.log(vol_new / vol_old)
         else:  # Linear scale
-            prob = trial_box.nMolTotal * math.log(self.disp[0].volNew / self.disp[0].volOld)
+            prob = trial_box.nMolTotal * math.log(vol_new / vol_old)
         
-        # Get extra terms (PV term)
+        # Get extra terms (PV term) from sampling if available
         from CommonSampling import sampling
         if sampling is not None:
-            extra_terms = sampling.get_extra_terms(self.disp, trial_box)
+            extra_terms = sampling.get_extra_terms([ortho_vol_disp], trial_box)
         else:
             extra_terms = 0.0
         
-        # Accept/reject
+        # Accept/reject decision
         if sampling is not None:
-            accept = sampling.make_decision(trial_box, e_diff, self.disp, log_prob=prob, extra_in=extra_terms)
+            accept = sampling.make_decision(trial_box, e_diff, [ortho_vol_disp], log_prob=prob, extra_in=extra_terms)
         else:
             # Default acceptance if no sampling rule is set
             accept = True
@@ -127,7 +128,7 @@ class IsoVol(MCMove):
         if accept:
             self.accpt += 1.0
             trial_box.update_energy(e_diff, e_inter, e_intra)
-            trial_box.update_position(self.disp, self.tempList, self.tempNnei)
+            trial_box.update_position([ortho_vol_disp], self.tempList, self.tempNnei)
         else:
             self.detailedrej += 1
         

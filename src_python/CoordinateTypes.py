@@ -54,13 +54,23 @@ class Deletion(Displacement):
 
 # =============================================================================
 class OrthoVolChange:
-   
-    def __init__(self, scales: np.ndarray, volOld: float, volNew: float):
+    """
+    Displacement class for orthogonal volume changes.
+    Corresponds to the Fortran OrthoVolChange type.
+    """
+    
+    def __init__(self, scales: np.ndarray = None, volOld: float = 0.0, volNew: float = 0.0):
         # Volume information
-        self.volOld = 0.0
-        self.volNew = 0.0
-        self.dim = dim
+        self.volOld = volOld
+        self.volNew = volNew
+        self.dim = 3  # Default to 3 dimensions
+        
+        
+        # do no place xScale, yScale, or zScale here
+        # depreciated and will not used
+        
         self.scales = scales
+
 
 # =============================================================================
 
