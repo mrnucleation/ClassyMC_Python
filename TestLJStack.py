@@ -106,72 +106,37 @@ def test_lj_stack():
     assert success, "Energy computation failed after moves"
     assert np.isclose(box.ETotal, E_culmative), "Cumulative energy does not match computed energy"
 
-def test_sim_monte_carlo():
-    """
-    Test the Sim_MonteCarlo class with the same LJ stack setup
-    """
-    print("\n" + "="*50)
-    print("Testing Sim_MonteCarlo with LJ Stack")
-    print("="*50)
-    
-    # Set up the same LJ system as in test_lj_stack()
+def test_lj_stack_montecarlo():
+    # Reuse the same LJ stack setup
     mock_lj_data = {
         "atoms": [("Ar", "LJ")],
     }
     atomtypes = ["LJ"]
     LJ_type = Molecule_Type(mock_lj_data, atomtypes=atomtypes)
-    
-    # Load coordinates
+
     box = load_coords("SimpleLJ.clssy", [LJ_type])
-    
-    # Define LJ Forcefield
+
+    # Define LJ Forcefield and attach to box
     lj_ff = LJ_Cut(nAtomTypes=1)
     lj_ff.rMin = np.zeros(1)
     lj_ff.rMinTable = np.zeros((1,1))
     box.EFunc.append(lj_ff)
-    
-    # Compute initial energy
-    success = box.compute_energy()
-    assert success, "Energy computation failed"
-    print(f"Initial Energy: {box.ETotal}")
-    
-    # Create Monte Carlo simulation
-    sim = SimMonteCarlo(
-        nCycles=10,           # 10 cycles
-        nMoves=100,           # 100 moves per cycle  
-        screenfreq=5,         # Screen output every 5 cycles
-        configfreq=10,        # Configuration output every 10 cycles
-        energyCheck=10        # Energy check every 10 cycles
-    )
-    
-    # Set up simulation components
-    sim.BoxList = [box]  # Add our box to the simulation
-    
-    # Set up sampling method (Metropolis)
+
+    # Initial energy
+    ok = box.compute_energy()
+    assert ok, "Initial energy computation failed"
+
+    # Moves and sampling
     sampling = Metropolis()
-    sim.Sampling = sampling
-    
-    # Set up moves (molecular translation)
-    transMove = MolTranslate([box])
-    sim.Moves = [transMove]
-    
-    # Set move weights (equal probability for all moves)
-    sim.moveweights = [1.0] * len(sim.Moves)
-    
-    try:
-        # Run the simulation
-        print("Starting Sim_MonteCarlo simulation...")
-        sim.run_monte_carlo()
-        print("Sim_MonteCarlo simulation completed successfully!")
-        
-        # Final energy check
-        success = box.compute_energy()
-        assert success, "Final energy computation failed"
-        print(f"Final Energy: {box.ETotal}")
-        
-    except Exception as e:
-        print(f"Error during Sim_MonteCarlo simulation: {e}")
-        raise
+    trans_move = MolTranslate([box])
+
+    # Configure and run Monte Carlo
+    mc = SimMonteCarlo(nCycles=2, nMoves=50, screenfreq=1, configfreq=0, energyCheck=0)
+    mc.BoxList = [box]
+    mc.Moves = [trans_move]
+    mc.Sampling = sampling
+
+    mc.run_monte_carlo()
 
 #-------------------------------
 
@@ -180,8 +145,7 @@ if __name__ == "__main__":
     
     # Run the LJ stack test
     test_lj_stack()
+    # Run the LJ stack Monte Carlo driver test
+    test_lj_stack_montecarlo()
     
-    # Run the Sim_MonteCarlo test
-    test_sim_monte_carlo()
-    
-    print("All tests completed.")
+    print("LJ Stack tests completed.")

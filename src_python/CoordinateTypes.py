@@ -54,11 +54,7 @@ class Deletion(Displacement):
 
 # =============================================================================
 class OrthoVolChange:
-    """
-    Displacement class for orthogonal volume changes.
-    Corresponds to the Fortran OrthoVolChange type.
-    """
-    
+   
     def __init__(self):
         # Volume information
         self.volOld = 0.0
