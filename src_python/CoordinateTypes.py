@@ -55,15 +55,13 @@ class Deletion(Displacement):
 # =============================================================================
 class OrthoVolChange:
    
-    def __init__(self):
+    def __init__(self, scales: np.ndarray, volOld: float, volNew: float):
         # Volume information
         self.volOld = 0.0
         self.volNew = 0.0
-        
-        # Scale factors
-        self.xScale = 1.0
-        self.yScale = 1.0
-        self.zScale = 1.0
+        self.dim = dim
+        self.scales = scales
+
 # =============================================================================
 
 
