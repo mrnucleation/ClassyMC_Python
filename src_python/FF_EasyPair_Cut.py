@@ -13,7 +13,7 @@ from abc import ABC, abstractmethod
 from typing import Tuple, List, Dict, Optional, Any
 from src_python.Template_Forcefield import ForceField
 from src_python.VarPrecision import dp
-from src_python.CoordinateTypes import Displacement
+from src_python.CoordinateTypes import Displacement, OrthoVolChange
 
 #================================================================================
 class EasyPairCut(ForceField):
@@ -198,8 +198,10 @@ class EasyPairCut(ForceField):
         if isinstance(disp, Displacement):
             # Displacement move
             E_Diff, accept = self.shift_calc_single_numpy(curbox, disp, tempList, tempNNei)
-                
-            
+        elif isinstance(disp, OrthoVolChange) or (isinstance(disp, list) and len(disp) > 0 and isinstance(disp[0], OrthoVolChange)):
+            # Orthorhombic volume move
+            E_Diff, accept = self.ortho_vol_calc(curbox, disp)
+        
         else:
             print("Unknown Perturbation Type Encountered by EasyPair_Cut", file=sys.stderr)
             return 0.0, False
@@ -434,9 +436,68 @@ class EasyPairCut(ForceField):
         Returns:
             tuple: (energy_change, accept_flag)
         """
-        # Implementation would depend on the specific force field
-        # This is a placeholder
-        return 0.0, True
+        # Accept either a single OrthoVolChange or a list with one element
+        vol_disp = disp[0] if isinstance(disp, (list, tuple, np.ndarray)) else disp
+        assert isinstance(vol_disp, OrthoVolChange), "ortho_vol_calc expects an OrthoVolChange displacement"
+
+        atoms = curbox.get_coordinates()
+        mol_indx = curbox.MolIndx
+        atom_types = curbox.AtomType
+
+        # Scaling factors per dimension
+        if vol_disp.scales is None:
+            # Fallback to isotropic scaling inferred from volume ratio
+            # Avoid raising: compute cubic root to maintain functionality
+            scale_iso = (vol_disp.volNew / vol_disp.volOld) ** (1.0 / 3.0) if vol_disp.volOld != 0 else 1.0
+            scales = np.array([scale_iso, scale_iso, scale_iso], dtype=dp)
+        else:
+            scales = np.asarray(vol_disp.scales, dtype=dp).reshape(1, -1)
+
+        E_total_new = 0.0
+        accept = True
+
+        # Loop over i atoms; vectorize over j>i
+        num_atoms = atoms.shape[0]
+        for i_atom in range(num_atoms - 1):
+            # Exclude intramolecular interactions (j atoms in same molecule)
+            mask_valid = (mol_indx[i_atom + 1:] != mol_indx[i_atom])
+            if not np.any(mask_valid):
+                continue
+
+            neighbors = atoms[i_atom + 1:][mask_valid]
+            j_types = atom_types[i_atom + 1:][mask_valid]
+
+            # Minimal image differences under current box
+            dR = neighbors - atoms[i_atom]
+            dR = curbox.boundary(dR)
+
+            # Apply anisotropic/isotropic scaling to differences to emulate new box
+            dR_new = dR * scales  # broadcasting over rows
+            rsq_new = np.sum(dR_new * dR_new, axis=1)
+
+            # Cutoff filter
+            within_cutoff = rsq_new < self.rCutSq
+            if not np.any(within_cutoff):
+                continue
+
+            rsq_sel = rsq_new[within_cutoff]
+            j_types_sel = j_types[within_cutoff]
+
+            # Overlap check using rMinTable if provided
+            if self.rMinTable is not None:
+                # Follow existing numpy style (atmType1 first index)
+                rmin_vals = self.rMinTable[atom_types[i_atom], j_types_sel].reshape(-1)
+                if not np.all(rsq_sel >= rmin_vals):
+                    return 0.0, False
+
+            # Pair energy for selected pairs
+            E_pairs = self.pair_function(rsq_sel, atom_types[i_atom], j_types_sel)
+            # Ensure array-like then sum
+            E_total_new += float(np.sum(E_pairs))
+
+        # Energy change is new total minus current intermolecular energy
+        E_diff = E_total_new - getattr(curbox, 'E_Inter', 0.0)
+        return E_diff, accept
     #-------------------------------------------------------------------------
     def atom_exchange(self, curbox, disp) -> Tuple[float, bool]:
         """
