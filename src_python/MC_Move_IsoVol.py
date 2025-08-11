@@ -65,6 +65,9 @@ class IsoVol(MCMove):
         self.atmps += 1.0
         self.load_box_info(trial_box, self.disp)
         
+        #Get the box dimensions
+        box_dim = trial_box.boxDims
+        
         # Propose volume change and calculate scaling factors
         vol_old = trial_box.volume
         if self.style == 1:  # Log scale
@@ -82,26 +85,29 @@ class IsoVol(MCMove):
         
         # Calculate scale factors for each dimension
         scale_factor = (vol_new / vol_old) ** (1.0 / 3.0)
-        scales = np.array([scale_factor, scale_factor, scale_factor], dtype=dp)
+        scales = np.full(box_dim, scale_factor, dtype=dp)
         
         # Create new Ortho-Vol object with appropriate variables
         ortho_vol_disp = OrthoVolChange(scales, vol_old, vol_new)
         
         # Check constraints with the new displacement object
-        if not trial_box.check_constraint([ortho_vol_disp]):
+        if not trial_box.check_constraint(ortho_vol_disp):
             self.constrainrej += 1
             return False
         
         # Calculate energy change by passing the new Ortho-Vol object to energy routine
         e_inter, e_intra, e_diff, accept = trial_box.compute_energy_delta(
-            [ortho_vol_disp], self.tempList, self.tempNnei, computeintra=False
+           ortho_vol_disp, 
+           self.tempList, 
+           self.tempNnei, 
+           computeintra=False
         )
         if not accept:
             self.ovlaprej += 1
             return False
         
         # Check post-energy constraints
-        if not trial_box.check_post_energy([ortho_vol_disp], e_diff):
+        if not trial_box.check_post_energy(ortho_vol_disp, e_diff):
             self.constrainrej += 1
             return False
         
