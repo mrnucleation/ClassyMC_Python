@@ -80,10 +80,16 @@ class CubeBox(SimpleBox):
         Corresponds to Cube_BoundaryNew
         Apply boundary conditions with scaling from volume changes
         """
+        
+        #Check if all scales are the same
+        if not np.all(disp.scales == disp.scales[0]):
+            print("Warning! CubeBox boundary_new: scales are not all the same", file=sys.stderr)
+            print("Cubic box only supports isotropic scaling", file=sys.stderr)
+            raise RuntimeError("scales are not all the same")
+        
+        scale_factor = disp.scales[0]
+        
         # Extract scale factor from displacement
-        scale_factor = 1.0
-        if hasattr(disp[0], 'xScale'):
-            scale_factor = disp[0].xScale
         
         rx = np.where(rx > self.boxL2*scale_factor, rx - self.boxL*scale_factor, rx)
         rx = np.where(rx < -self.boxL2*scale_factor, rx + self.boxL*scale_factor, rx)
