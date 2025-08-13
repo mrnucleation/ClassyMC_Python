@@ -9,6 +9,7 @@ import numpy as np
 import sys
 from src_python.Box_SimpleBox import SimpleBox
 from src_python.VarPrecision import dp
+from src_python.Perturbation import OrthoVolChange
 
 def GetXCommand(line, position):
     """Simple implementation of GetXCommand for parsing input"""
@@ -22,7 +23,7 @@ class CubeBox(SimpleBox):
     Cubic simulation box with periodic boundary conditions.
     Corresponds to the Fortran CubeBox type.
     """
-    
+    #--------------------------------------------------------------------------------------------------
     def __init__(self, MolData, NMolMin=None, NMolMax=None, NMol=None, nDimensions=3):
         """Initialize cubic box, calling parent constructor"""
         super().__init__(MolData, NMolMin, NMolMax, NMol, nDimensions)
@@ -34,7 +35,7 @@ class CubeBox(SimpleBox):
         
         
         
-    #--------------------------------------------------------------------------   
+    #--------------------------------------------------------------------------------------------------   
     def load_dimension(self, boxlengths: list[float]) -> bool:
         """
         Corresponds to Cube_LoadDimension
@@ -47,7 +48,7 @@ class CubeBox(SimpleBox):
             return True
         except (ValueError, IndexError):
             return False
-    
+    #--------------------------------------------------------------------------------------------------
     def get_dimensions(self):
         """
         Corresponds to Cube_GetDimensions
@@ -57,7 +58,7 @@ class CubeBox(SimpleBox):
         for i in range(self.nDimension):
             dimensions.append([-self.boxL2, self.boxL2])
         return dimensions
-    
+    #--------------------------------------------------------------------------------------------------
     def boundary(self, rx: np.ndarray):
         """
         Corresponds to Cube_Boundary
@@ -73,7 +74,7 @@ class CubeBox(SimpleBox):
         rx = np.where(rx < -self.boxL2, rx + self.boxL, rx)
         return rx
         
-
+    #--------------------------------------------------------------------------------------------------
     
     def boundary_new(self, rx, disp):
         """
@@ -94,7 +95,7 @@ class CubeBox(SimpleBox):
         rx = np.where(rx > self.boxL2*scale_factor, rx - self.boxL*scale_factor, rx)
         rx = np.where(rx < -self.boxL2*scale_factor, rx + self.boxL*scale_factor, rx)
         return rx
-    
+    #--------------------------------------------------------------------------------------------------
     def process_io(self, line):
         """
         Corresponds to Cube_ProcessIO
@@ -114,7 +115,7 @@ class CubeBox(SimpleBox):
                 
         except (ValueError, IndexError):
             return super().process_io(line)
-    
+    #--------------------------------------------------------------------------------------------------
     def dump_data(self, filename):
         """
         Corresponds to Cube_DumpData
@@ -147,7 +148,7 @@ class CubeBox(SimpleBox):
                 pass  # Placeholder until MolData is available
         except IOError as e:
             print(f"Error writing dump file {filename}: {e}", file=sys.stderr)
-    
+    #--------------------------------------------------------------------------------------------------
     def prologue(self):
         """
         Corresponds to Cube_Prologue
@@ -223,14 +224,19 @@ class CubeBox(SimpleBox):
         for i in range(self.nDimension):
             real_coords[i] = self.boxL * reduced_coords[i] - self.boxL2
         return real_coords
-    
-    def update_volume(self, disp):
+    #--------------------------------------------------------------------------------------------------
+    def update_volume(self, vol_disp):
         """
         Corresponds to Cube_UpdateVolume
         Update box dimensions after volume change
         """
-        if hasattr(disp[0], 'volNew') and hasattr(disp[0], 'volOld'):
-            vol_ratio = disp[0].volNew / disp[0].volOld
-            self.volume = disp[0].volNew
+        
+        assert isinstance(vol_disp, OrthoVolChange), "CubeBox update_volume: disp must be an OrthoVolChange"
+        
+        if isinstance(vol_disp, OrthoVolChange):
+            vol_ratio = vol_disp.volNew / vol_disp.volOld
+            self.volume = vol_disp.volNew
             self.boxL = self.boxL * (vol_ratio ** (1.0/3.0))
             self.boxL2 = self.boxL / 2.0
+    #--------------------------------------------------------------------------------------------------
+#==================================================================================================
