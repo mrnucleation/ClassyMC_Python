@@ -438,15 +438,29 @@ class SimpleBox(SimBox):
         
         return True
     
-    
     # -------------------------------------------------------------------------
-    def update_position(self, disp: Displacement):
+    def update(self):
+        """
+        Corresponds to SimpleBox_Update
+        General update operations
+        """
+        # Update displacement tracking
+        self.largestdr = np.max(self.drsq) if self.drsq is not None else 0.0
+    # -------------------------------------------------------------------------
+    def update_position(self, disp):
         """
         Corresponds to SimpleBox_UpdatePosition
         Update atomic positions based on displacement
         """
-        self.atoms[disp.atmIndicies, :] = disp.X
-
+        
+        if isinstance(disp, Displacement):
+            self.atoms[disp.atmIndicies, :] = disp.X
+            self.boundary(self.atoms[disp.atmIndicies, :])
+            # Update center of mass for the moved molecule
+            self.compute_cm(disp.molIndx)
+        else:
+            raise ValueError(f"Unknown displacement type: {type(disp)}")
+   
     
     # -------------------------------------------------------------------------
     def check_constraint(self, disp=None):
@@ -489,19 +503,16 @@ class SimpleBox(SimBox):
         Corresponds to SimpleBox_ComputeCM
         Compute center of mass for a molecule
         """
-        molStart = self.MolStartIndx[molIndx]
-        molEnd = self.MolEndIndx[molIndx]
-        molType = self.MolType[molStart]
+       
+        #total_mass = 0.0
+        mask = self.MolIndx == molIndx
+        #cm = np.sum(self.atoms[mask, :] * self.MolData[self.MolType[mask]]['masses'], axis=0)
+        #total_mass = np.sum(self.MolData[self.MolType[mask]]['masses'])
         
-        total_mass = 0.0
-        cm = np.zeros(3)
-        
-        for iAtom in range(molStart, molEnd + 1):
-            atomType = self.AtomType[iAtom]
-            mass = self.MolData[molType]['masses'][iAtom - molStart]  # Assuming masses are stored
-            total_mass += mass
-            cm += mass * self.atoms[iAtom, :]
-        
+        # This is the geometric center of mass
+        cm = np.sum(self.atoms[mask, :], axis=0)
+        total_mass = np.sum(mask)
+       
         if total_mass > 0:
             self.centerMass[molIndx, :] = cm / total_mass
     
@@ -545,8 +556,8 @@ class SimpleBox(SimBox):
     # -------------------------------------------------------------------------
     def prologue(self):
         """
-        Corresponds to SimpleBox_Prologue
-        Initialize the simulation box
+         Inherited from the master class
+         Runs at the beginning of the simulation
         """
         print(f"Initializing SimpleBox {self.boxID}")
         
@@ -596,14 +607,7 @@ class SimpleBox(SimBox):
             self.rebuilds += 1
             self.largestdr = 0.0
     
-    # -------------------------------------------------------------------------
-    def update(self):
-        """
-        Corresponds to SimpleBox_Update
-        General update operations
-        """
-        # Update displacement tracking
-        self.largestdr = np.max(self.drsq) if self.drsq is not None else 0.0
+
     
     # -------------------------------------------------------------------------
     def safety_check(self):
@@ -787,7 +791,14 @@ class SimpleBox(SimBox):
         
         self.nAtoms = current_atom
         self.nMolTotal = current_mol
-        
+
+        # Allocate center of mass array
+        if self.nMolTotal > 0:
+            self.centerMass = np.zeros((self.nMolTotal, self.nDimensions), dtype=dp)
+            # Initialize center of mass for all molecules
+            for molIdx in range(self.nMolTotal):
+                self.compute_cm(molIdx)
+
         print(f"Loaded {self.nAtoms} atoms and {self.nMolTotal} molecules")
     # -------------------------------------------------------------------------
     def get_reduced_coords(self, real_coords):

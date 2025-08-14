@@ -9,7 +9,7 @@ import numpy as np
 import sys
 from src_python.Box_SimpleBox import SimpleBox
 from src_python.VarPrecision import dp
-from src_python.Perturbation import OrthoVolChange
+from src_python.CoordinateTypes import OrthoVolChange
 
 def GetXCommand(line, position):
     """Simple implementation of GetXCommand for parsing input"""

@@ -23,6 +23,19 @@ class Displacement:
         self.atmIndicies = atmIndicies
         self.X = newPositions
 # =============================================================================
+class MolDisplacement(Displacement):
+    """
+    Base displacement class for atomic moves.
+    Corresponds to the Fortran Displacement type.
+    """
+
+    def __init__(self, oldpos, moldelta, molType: int, molIndx: int, atmIndicies: np.ndarray):
+        self.moldelta = moldelta
+        newPositions = oldpos + moldelta
+        super().__init__(molType, molIndx, atmIndicies, newPositions)
+        
+
+# =============================================================================
         
 
 
