@@ -1,22 +1,15 @@
 import math
 import sys
 import numpy as np
-from src_python.VarPrecision import dp
 from src_python.Template_AcceptRule import AcceptRule
 
-# Simple implementations for missing functions
-def IsNan(value):
-    """Check if value is NaN"""
-    return np.isnan(value)
-
-np.random.random()
-
+#===============================================================================
 class Metropolis(AcceptRule):
     """Basic Metropolis Rule for molecular systems."""
-    
+    #---------------------------------------------------------------------------
     def __init__(self):
         super().__init__()
-    
+    #---------------------------------------------------------------------------
     def make_decision(self, trial_box, e_diff, disp, in_prob=None, log_prob=None, extra_in=None):
         """
         Make acceptance decision based on Metropolis criterion.
@@ -32,7 +25,7 @@ class Metropolis(AcceptRule):
         Returns:
             bool: Whether to accept the move
         """
-        if IsNan(e_diff):
+        if np.isnan(e_diff):
             print("ERROR! Invalid energy has been passed to the sampling routine!", file=sys.stderr)
             print(e_diff, file=sys.stderr)
             raise RuntimeError("Invalid energy in sampling routine")
@@ -113,3 +106,5 @@ class Metropolis(AcceptRule):
             accept = True
         
         return accept
+    #---------------------------------------------------------------------------
+#===============================================================================

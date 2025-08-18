@@ -43,6 +43,8 @@ class IsoVol(MCMove):
         self.disp = [OrthoVolChange()]
         self.disptri = [TriVolChange()]
     
+    # ------------------------------------------------------------
+
     def constructor(self):
         """
         Corresponds to IsoVol_Constructor
@@ -50,6 +52,7 @@ class IsoVol(MCMove):
         """
         self.create_temp_array(1)
     
+    # ------------------------------------------------------------
     def full_move(self, trial_box):
         """
         Corresponds to IsoVol_FullMove
@@ -139,7 +142,7 @@ class IsoVol(MCMove):
             self.detailedrej += 1
         
         return accept
-    
+    # ------------------------------------------------------------
     def maintenance(self):
         """
         Corresponds to IsoVol_Maintenance
@@ -170,7 +173,7 @@ class IsoVol(MCMove):
             self.boxProb = np.array([1.0], dtype=dp)
         
         print(f"(Iso-Volume) Maximum Volume Change: {self.maxDv:15.8f}")
-    
+    # ------------------------------------------------------------
     def epilogue(self):
         """
         Corresponds to IsoVol_Epilogue
@@ -190,6 +193,7 @@ class IsoVol(MCMove):
             print(f"Iso-Volume, Rejections due to constraint: {self.constrainrej:15d}")
             print(f"Iso-Volume, Rejections due to detailed balance: {self.detailedrej:15d}")
     
+    # ------------------------------------------------------------
     def process_io(self, line: str) -> int:
         """
         Corresponds to IsoVol_ProcessIO
@@ -234,3 +238,4 @@ class IsoVol(MCMove):
             return -1
         
         return 0 
+    # ------------------------------------------------------------

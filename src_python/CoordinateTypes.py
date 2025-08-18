@@ -45,10 +45,15 @@ class Addition(Displacement):
     Displacement class for addition moves.
     Corresponds to the Fortran Addition type.
     """
-    
-    def __init__(self):
+    #-------------------------------------------------------------
+    def __init__(self, molType: int, molIndx: int, atmIndicies: np.ndarray, newPositions: np.ndarray):
         super().__init__()
         self.addition = True
+        self.X = newPositions
+        self.atmIndicies = atmIndicies
+        self.molType = molType
+        self.molIndx = molIndx
+    #-------------------------------------------------------------
 # =============================================================================
 
 
@@ -59,9 +64,12 @@ class Deletion(Displacement):
     Corresponds to the Fortran Deletion type.
     """
     
-    def __init__(self):
+    def __init__(self, molType: int, molIndx: int, atmIndicies: np.ndarray):
         super().__init__()
         self.deletion = True
+        self.atmIndicies = atmIndicies
+        self.molType = molType
+        self.molIndx = molIndx
 # =============================================================================
 
 
