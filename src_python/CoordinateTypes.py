@@ -23,7 +23,7 @@ class Displacement:
         self.atmIndicies = atmIndicies
         self.X = newPositions
 # =============================================================================
-class MolDisplacement(Displacement):
+class MolDisplacement():
     """
     Base displacement class for atomic moves.
     Corresponds to the Fortran Displacement type.
@@ -40,36 +40,36 @@ class MolDisplacement(Displacement):
 
 
 # =============================================================================
-class Addition(Displacement):
+class Addition:
     """
     Displacement class for addition moves.
     Corresponds to the Fortran Addition type.
     """
     #-------------------------------------------------------------
-    def __init__(self, molType: int, molIndx: int, atmIndicies: np.ndarray, newPositions: np.ndarray):
-        super().__init__()
+    def __init__(self, molType: int, molIndx: int, atomTypes: np.ndarray, newPositions: np.ndarray):
         self.addition = True
         self.X = newPositions
-        self.atmIndicies = atmIndicies
-        self.molType = molType
         self.molIndx = molIndx
+        self.atomTypes = atomTypes
+        self.molType = molType
     #-------------------------------------------------------------
 # =============================================================================
 
 
 # =============================================================================
-class Deletion(Displacement):
+class Deletion:
     """
     Displacement class for deletion moves.
     Corresponds to the Fortran Deletion type.
     """
     
-    def __init__(self, molType: int, molIndx: int, atmIndicies: np.ndarray):
-        super().__init__()
+    def __init__(self, molType: int, molIndx: int, atomTypes: np.ndarray, atomIndicies: np.ndarray):
+        # For deletion, we don't have new positions, so pass empty array
         self.deletion = True
-        self.atmIndicies = atmIndicies
-        self.molType = molType
         self.molIndx = molIndx
+        self.atomTypes = atomTypes
+        self.molType = molType
+        self.atomIndicies = atomIndicies
 # =============================================================================
 
 

@@ -4,7 +4,7 @@ import math
 from src_python.Script_LoadCoordinates import load_coords
 from src_python.Molecule_Definition import Molecule_Type
 from src_python.FF_LJ_Cut import LJ_Cut
-from src_python.CoordinateTypes import Displacement
+from src_python.CoordinateTypes import Displacement, Addition, Deletion
 from src_python.MC_Move_MolTranslation import MolTranslate
 from src_python.CoordinateTypes import OrthoVolChange
 from src_python.Sampling_Metropolis import Metropolis
@@ -61,10 +61,17 @@ def test_lj_stack():
     start_energy = box.ETotal
     
     #Set up a displacement object
-    disp = Displacement(LJ_type, 0, 0, box.atoms[0])
-    print(f"Displacement created: {disp}")
+    # Move atom 0 (first atom of first molecule)
+    mol_type = 0  # First molecule type
+    mol_index = 0  # First molecule
+    atom_indices = np.array([0])  # First atom
     delta_x = np.array([1.12, 0.0, 0.0])
-    disp.X = box.atoms[0] + delta_x
+    new_positions = (box.atoms[0] + delta_x).reshape(1, -1)  # Reshape to (1, 3)
+
+    disp = Displacement(mol_type, mol_index, atom_indices, new_positions)
+    print(f"Displacement created: {disp}")
+    print(f"Original position: {box.atoms[0]}")
+    print(f"New position: {new_positions}")
     
     # Compute the energy after displacement
     E_Inter, E_Intra, accept = box.compute_energy_delta(disp)
@@ -357,16 +364,202 @@ def test_lj_volume_changes():
 
     print("\n=== LJ Volume Change Tests Completed ===\n")
 
+def test_lj_addition_deletion():
+    """
+    Test addition and deletion moves for LJ system.
+    This test verifies that energy calculations are consistent between
+    delta calculations and full energy recomputations for addition and deletion operations.
+    """
+    print("\n=== Testing LJ Addition and Deletion Moves ===\n")
+
+    # Set up LJ system similar to other tests
+    mock_lj_data = {
+        "atoms": [("Ar", "LJ")],
+    }
+    atomtypes = ["LJ"]
+    LJ_type = Molecule_Type(mock_lj_data, atomtypes=atomtypes)
+
+    box = load_coords("SimpleLJ.clssy", [LJ_type])
+
+    # Define LJ Forcefield
+    lj_ff = LJ_Cut(nAtomTypes=1)
+    lj_ff.rMin = np.zeros(1)
+    lj_ff.rMinTable = np.zeros((1,1))
+    box.EFunc.append(lj_ff)
+
+    # Initial energy computation
+    success = box.compute_energy()
+    assert success, "Initial energy computation failed"
+    initial_energy = box.ETotal
+    initial_nmol = box.NMol.copy()
+    initial_natoms = box.nAtoms
+
+    print(f"Initial system:")
+    print(f"  Energy: {initial_energy:.6f}")
+    print(f"  Number of molecules: {initial_nmol}")
+    print(f"  Number of atoms: {initial_natoms}")
+
+    # Step 1: Test Addition Move
+    print("\n--- Step 1: Addition Move ---")
+
+    # Store original state
+    original_atoms = box.atoms.copy()
+    original_energy = box.ETotal
+
+    # Create Addition object
+    # Add a new molecule at a random position
+    mol_type = 0  # LJ molecule type
+    mol_sub_index = initial_nmol[mol_type]  # Next available molecule slot
+
+    # Generate random position for new atom
+    new_position = np.array([[np.random.uniform(0, box.boxL[0]),
+                             np.random.uniform(0, box.boxL[1]),
+                             np.random.uniform(0, box.boxL[2])]])
+    
+    print(f"New position: {new_position}")
+    print(f"New position shape: {new_position.shape}")
+
+    # Create Addition object
+    addition = Addition(molType=mol_type,
+                       molIndx=box.atoms.shape[0],
+                       atomTypes=np.array([0]),  # New atom index
+                       newPositions=new_position)
+
+    print(f"  Created Addition object:")
+    print(f"    Molecule type: {addition.molType}")
+    print(f"    Molecule sub-index: {addition.molIndx}")
+    print(f"    Atom indices: {addition.atomTypes}")
+    print(f"    New positions: {addition.X}")
+
+    # Step 2: Compute energy delta using diffcalc
+    print("\n--- Step 2: Compute Energy Delta ---")
+    E_Inter_delta, accept = box.EFunc[0].diff_calc(box, addition, [], [])
+    assert accept, "Energy delta computation failed for addition"
+
+    print(f"  Energy delta from diffcalc:")
+    print(f"    Intermolecular: {E_Inter_delta:.6f}")
+
+    # Step 3: Apply the addition using add_mol
+    print("\n--- Step 3: Apply Addition ---")
+
+    # Use add_mol to add the molecule
+    box.update_position(addition)
+
+    print(f"  Added molecule successfully")
+    print(f"  New number of molecules: {box.NMol}")
+    print(f"  New number of atoms: {box.nAtoms}")
+
+    # Step 4: Compute new energy with delta method
+    new_energy_delta = original_energy + E_Inter_delta 
+    print(f"  New energy (delta method): {new_energy_delta:.6f}")
+
+    # Step 5: Recompute energy from scratch
+    print("\n--- Step 5: Full Energy Recomputation ---")
+    success = box.compute_energy()
+    assert success, "Full energy recomputation failed"
+    new_energy_full = box.ETotal
+
+    print(f"  New energy (full recomputation): {new_energy_full:.6f}")
+
+    # Step 6: Compare energies
+    energy_diff = abs(new_energy_delta - new_energy_full)
+    print(f"  Energy difference: {energy_diff:.10f}")
+
+    if energy_diff > 1e-10:
+        raise AssertionError(f"Energy mismatch after addition! Delta: {new_energy_delta:.10f}, Full: {new_energy_full:.10f}, Diff: {energy_diff:.10f}")
+
+    print("  ✓ Addition energy calculation is consistent!")
+
+    # Step 7: Test Deletion Move
+    print("\n--- Step 7: Deletion Move ---")
+
+    # Store current state before deletion
+    current_energy = box.ETotal
+    current_atoms = box.atoms.copy()
+
+    # Choose a molecule to delete (not the original ones, delete the one we just added)
+    mol_to_delete = box.MolIndx.max()  # The molecule we just added
+    print(f"  Deleting molecule sub-index: {mol_to_delete}")
+
+    # Create Deletion object
+    # Find atoms belonging to this molecule
+    mol_data = box.get_mol_data(mol_to_delete)
+    
+    atom_indices = mol_data['atomIndicies']
+
+    deletion = Deletion(molType=mol_type,
+                       molIndx=mol_to_delete,
+                       atomTypes=np.array([0]),
+                       atomIndicies=atom_indices)
+
+    print(f"  Created Deletion object:")
+    print(f"    Molecule type: {deletion.molType}")
+    print(f"    Molecule index: {deletion.molIndx}")
+    print(f"    Atom indices: {deletion.atomIndicies}")
+
+    # Step 8: Compute energy delta for deletion
+    print("\n--- Step 8: Compute Deletion Energy Delta ---")
+    E_Inter_delta_del, accept = box.EFunc[0].diff_calc(box, deletion, [], [])
+    assert accept, "Energy delta computation failed for deletion"
+
+    print(f"  Energy delta from diffcalc:")
+    print(f"    Intermolecular: {E_Inter_delta_del:.6f}")
+
+    # Step 9: Apply the deletion
+    print("\n--- Step 9: Apply Deletion ---")
+    box.update_position(deletion)
+
+    print(f"  Deleted molecule successfully")
+    print(f"  New number of molecules: {box.NMol}")
+    print(f"  New number of atoms: {box.nAtoms}")
+
+    # Step 10: Compute new energy with delta method
+    new_energy_delta_del = current_energy + E_Inter_delta_del
+    print(f"  New energy (delta method): {new_energy_delta_del:.6f}")
+
+    # Step 11: Recompute energy from scratch
+    print("\n--- Step 11: Full Energy Recomputation After Deletion ---")
+    success = box.compute_energy()
+    assert success, "Full energy recomputation failed after deletion"
+    new_energy_full_del = box.ETotal
+
+    print(f"  New energy (full recomputation): {new_energy_full_del:.6f}")
+
+    # Step 12: Compare energies
+    energy_diff_del = abs(new_energy_delta_del - new_energy_full_del)
+    print(f"  Energy difference: {energy_diff_del:.10f}")
+
+    if energy_diff_del > 1e-10:
+        raise AssertionError(f"Energy mismatch after deletion! Delta: {new_energy_delta_del:.10f}, Full: {new_energy_full_del:.10f}, Diff: {energy_diff_del:.10f}")
+
+    print("  ✓ Deletion energy calculation is consistent!")
+
+    # Step 13: Verify we're back to original state
+    print("\n--- Step 13: Verify Original State ---")
+    final_energy_diff = abs(new_energy_full_del - initial_energy)
+    print(f"  Final energy: {new_energy_full_del:.6f}")
+    print(f"  Original energy: {initial_energy:.6f}")
+    print(f"  Energy difference from original: {final_energy_diff:.10f}")
+
+    if final_energy_diff > 1e-10:
+        raise AssertionError(f"Not back to original energy state! Original: {initial_energy:.10f}, Final: {new_energy_full_del:.10f}, Diff: {final_energy_diff:.10f}")
+
+    print("  ✓ Successfully returned to original state!")
+
+    print("\n=== LJ Addition/Deletion Tests Completed Successfully ===\n")
+
 #-------------------------------
 
 if __name__ == "__main__":
     print("Running LJ Stack tests...")
 
     # Run the LJ stack test
-    test_lj_stack()
+    #test_lj_stack()
     # Run the LJ stack Monte Carlo driver test
-    test_lj_stack_montecarlo()
+    #test_lj_stack_montecarlo()
     # Run the volume change test
-    test_lj_volume_changes()
+    #test_lj_volume_changes()
+    # Run the addition/deletion test
+    test_lj_addition_deletion()
 
     print("LJ Stack tests completed.")

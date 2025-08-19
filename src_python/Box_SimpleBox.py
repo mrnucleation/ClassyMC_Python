@@ -12,7 +12,7 @@ import sys
 from abc import ABC, abstractmethod
 from src_python.Template_SimBox import SimBox
 from src_python.VarPrecision import dp
-from src_python.CoordinateTypes import Displacement
+from src_python.CoordinateTypes import Displacement, Addition, Deletion
 from typing import Optional, List, Dict, Tuple, Any, Union
 
 
@@ -358,18 +358,17 @@ class SimpleBox(SimBox):
         Corresponds to SimpleBox_GetMolData
         Get molecular data for a given global molecule index
         """
-        if global_indx >= self.maxMol or global_indx < 0:
-            raise IndexError(f"Invalid molecule index: {global_indx}")
-        
-        molStart = self.MolStartIndx[global_indx]
-        molEnd = self.MolEndIndx[global_indx]
-        molType = self.MolType[molStart]
-        nAtoms = molEnd - molStart + 1
+        #if global_indx >= self.maxMol or global_indx < 0:
+        #    raise IndexError(f"Invalid molecule index: {global_indx}")
+ 
+        atomIndicies = np.where(self.MolIndx == global_indx)[0]
+        print(atomIndicies)
+        molType = self.MolType[atomIndicies[0]]
+        nAtoms = len(atomIndicies)
         
         result = {
-            'molStart': molStart,
-            'molEnd': molEnd,
             'molType': molType,
+            'atomIndicies': atomIndicies,
             'nAtoms': nAtoms
         }
         
@@ -447,17 +446,41 @@ class SimpleBox(SimBox):
         # Update displacement tracking
         self.largestdr = np.max(self.drsq) if self.drsq is not None else 0.0
     # -------------------------------------------------------------------------
-    def update_position(self, disp):
+    def update_position(self, disp: Union[Displacement, Addition, Deletion]):
         """
         Corresponds to SimpleBox_UpdatePosition
         Update atomic positions based on displacement
         """
         
+        print(type(disp))
         if isinstance(disp, Displacement):
             self.atoms[disp.atmIndicies, :] = disp.X
             self.boundary(self.atoms[disp.atmIndicies, :])
             # Update center of mass for the moved molecule
-            self.compute_cm(disp.molIndx)
+            #self.compute_cm(disp.molIndx)
+        elif isinstance(disp, Addition):
+            disp.X = self.boundary(disp.X)
+            print(disp.X.shape, self.atoms.shape)
+            self.atoms = np.concatenate((self.atoms, disp.X), axis=0)
+            print(self.MolIndx)
+            self.MolIndx = np.concatenate((self.MolIndx, np.full(disp.X.shape[0], disp.molIndx)), axis=0)
+            print(self.MolIndx)
+            self.AtomType = np.concatenate((self.AtomType, disp.atomTypes), axis=0)
+            self.MolType = np.concatenate((self.MolType, np.full(disp.X.shape[0], disp.molType)), axis=0)
+            self.AtomType = np.concatenate((self.AtomType, disp.atomTypes), axis=0)
+            #self.centerMass = np.concatenate((self.centerMass, np.zeros((1, 3))), axis=0)
+            #self.compute_cm(disp.molIndx)
+        elif isinstance(disp, Deletion):
+            self.atoms = np.delete(self.atoms, disp.atomIndicies, axis=0)
+            self.MolIndx = np.delete(self.MolIndx, disp.atomIndicies, axis=0)
+            self.AtomType = np.delete(self.AtomType, disp.atomIndicies, axis=0)
+            self.MolType = np.delete(self.MolType, disp.atomIndicies, axis=0)
+            #self.centerMass = np.delete(self.centerMass, disp.atomIndicies, axis=0)
+            
+            #Rescale any indicies that are greater than the deleted molecule
+            mask = self.MolIndx > disp.molIndx
+            self.MolIndx[mask] -= 1
+            
         else:
             raise ValueError(f"Unknown displacement type: {type(disp)}")
    

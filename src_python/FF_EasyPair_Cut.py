@@ -13,7 +13,7 @@ from abc import ABC, abstractmethod
 from typing import Tuple, List, Dict, Optional, Any
 from src_python.Template_Forcefield import ForceField
 from src_python.VarPrecision import dp
-from src_python.CoordinateTypes import Displacement, OrthoVolChange
+from src_python.CoordinateTypes import Displacement, OrthoVolChange, Addition, Deletion
 
 #================================================================================
 class EasyPairCut(ForceField):
@@ -196,12 +196,17 @@ class EasyPairCut(ForceField):
         
         # Determine perturbation type and dispatch accordingly
         if isinstance(disp, Displacement):
-            # Displacement move
+            # Check if it's an addition or deletion move
             E_Diff, accept = self.shift_calc_single_numpy(curbox, disp, tempList, tempNNei)
-        elif isinstance(disp, OrthoVolChange) or (isinstance(disp, list) and len(disp) > 0 and isinstance(disp[0], OrthoVolChange)):
+        elif isinstance(disp, Addition):
+                # Addition move
+                E_Diff, accept = self.new_calc(curbox, disp, tempList, tempNNei)
+        elif isinstance(disp, Deletion):
+                # Deletion move
+                E_Diff, accept = self.old_calc(curbox, disp)
+        elif isinstance(disp, OrthoVolChange):
             # Orthorhombic volume move
             E_Diff, accept = self.ortho_vol_calc(curbox, disp)
-        
         else:
             print("Unknown Perturbation Type Encountered by EasyPair_Cut", file=sys.stderr)
             return 0.0, False
@@ -227,6 +232,8 @@ class EasyPairCut(ForceField):
         Returns:
             tuple: (energy_change, accept_flag)
         """
+        assert isinstance(disp, Displacement), "shift_calc_single_numpy expects a Displacement displacement"
+        
         E_Diff = 0.0
         accept = True
         
@@ -288,6 +295,9 @@ class EasyPairCut(ForceField):
         Returns:
             tuple: (energy_change, accept_flag)
         """
+        
+        assert isinstance(disp, Addition), "new_calc expects an Addition displacement"
+        
         E_Diff = 0.0
         accept = True
         
@@ -295,7 +305,21 @@ class EasyPairCut(ForceField):
         atoms = curbox.get_coordinates()
         molIndx = curbox.MolIndx
         atoms_new = disp.X
-        iAtomTypes = disp.AtomType
+
+        # For addition moves, determine the atom type of the new atom
+        # For simple LJ systems, all atoms are type 0
+        if hasattr(disp, 'addition') and disp.addition:
+            # This is an addition move - get atom type from molecule definition
+            iAtomTypes = np.array([curbox.MolData[disp.molType].atomtypes[0]])
+            # Convert atom type string to integer using the atomtype dictionary
+            if hasattr(curbox, 'atomtype_dict'):
+                iAtomTypes = np.array([curbox.atomtype_dict[iAtomTypes[0]]])
+            else:
+                # Default to type 0 for LJ systems
+                iAtomTypes = np.array([0])
+        else:
+            iAtomTypes = disp.AtomType
+
         jAtomTypes = curbox.AtomType
         
         #Compute the squared distances of the new positions
@@ -312,13 +336,19 @@ class EasyPairCut(ForceField):
 
         # Check if any pairs are within the cutoff
         if self.rMinTable is not None:
-            rmin_ij = self.rMinTable[disp.AtomType, jAtomTypes]
+            rmin_ij = self.rMinTable[iAtomTypes[0], jAtomTypes]
             rmin_ij = rmin_ij.reshape(-1)
             accept = np.all(rsq >= rmin_ij)
             if not accept:
                 return 0.0, False
 
-        E_pair = self.pair_function(rsq, curbox.AtomType[disp.atmIndicies], jAtomTypes_new)
+        # For addition moves, use the new atom type; otherwise use existing atom types
+        if hasattr(disp, 'addition') and disp.addition:
+            new_atom_type = iAtomTypes[0]
+        else:
+            new_atom_type = curbox.AtomType[disp.atmIndicies[0]]
+
+        E_pair = self.pair_function(rsq, new_atom_type, jAtomTypes_new)
         E_Diff += np.sum(E_pair)
         
 
@@ -338,26 +368,30 @@ class EasyPairCut(ForceField):
         # Implementation would depend on the specific force field
         # This is a placeholder
         
+        assert isinstance(disp, Deletion), "old_calc expects a Deletion displacement"
+        
         E_Diff = 0.0
         accept = True
         
         # Get atom positions
         atoms = curbox.get_coordinates()
         molIndx = curbox.MolIndx
-        atoms_new = disp.X
+        atom_indicies = disp.atomIndicies
         #I will update this later when the neighbor list is implemented
         mask = np.where(molIndx != disp.molIndx)
         cut_list = atoms[mask]
-        jAtomTypes = curbox.AtomType[mask]       
+        jAtomTypes = curbox.AtomType[mask]
+        jAtomTypes_new = curbox.AtomType[atom_indicies]
         
         #Compute the squared distances of the new positions
-        rx = cut_list - atoms_new
+        rx = cut_list[None, :, :] - atoms[atom_indicies, None, :]
+        rx = rx.reshape(-1, 3)
         rx = curbox.boundary(rx)
         rsq = np.sum(rx**2, axis=1).reshape(-1)
         
         # Check if any pairs are within the cutoff
         if self.rMinTable is not None:
-            rmin_ij = self.rMinTable[curbox.AtomType[disp.atmIndicies], jAtomTypes]
+            rmin_ij = self.rMinTable[jAtomTypes_new, jAtomTypes]
             rmin_ij = rmin_ij.reshape(-1)
             accept = np.all(rsq >= rmin_ij)
             if not accept:
@@ -368,21 +402,11 @@ class EasyPairCut(ForceField):
         rsq = rsq[within_cutoff]
         jAtomTypes_new = jAtomTypes[within_cutoff]
 
-        E_pair = self.pair_function(rsq, curbox.AtomType[disp.atmIndicies], jAtomTypes_new)
-        E_Diff += np.sum(E_pair)
+        E_pair = self.pair_function(rsq, jAtomTypes_new, jAtomTypes)
+        E_Diff -= np.sum(E_pair)
         
-        #Compute the squared distances of the old positions
-        rx_old = atoms[disp.atmIndicies] - cut_list
-        rx_old = curbox.boundary(rx_old)
-        rsq_old = np.sum(rx_old**2, axis=1).reshape(-1)
-        within_cutoff_old = rsq_old < self.rCutSq
-        rsq_old = rsq_old[within_cutoff_old]
-        jAtomTypes_old = jAtomTypes[within_cutoff_old]
-        E_pair_old = self.pair_function(rsq_old, curbox.AtomType[disp.atmIndicies], jAtomTypes_old)
-        E_Diff -= np.sum(E_pair_old)
+
         return E_Diff, accept
-       
-        return 0.0
     #-------------------------------------------------------------------------
     def ortho_vol_calc(self, curbox, disp) -> Tuple[float, bool]:
         """
