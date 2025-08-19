@@ -34,6 +34,7 @@ class EasyPairCut(ForceField):
         self.rCut = 5.0
         self.rCutSq = 25.0
         
+        self.checkOldrMin = True
     
     #-------------------------------------------------------------------------
     def pair_function(self, rsq: float, atmtype1: int, atmtype2: int) -> float:
@@ -306,20 +307,7 @@ class EasyPairCut(ForceField):
         molIndx = curbox.MolIndx
         atoms_new = disp.X
 
-        # For addition moves, determine the atom type of the new atom
-        # For simple LJ systems, all atoms are type 0
-        if hasattr(disp, 'addition') and disp.addition:
-            # This is an addition move - get atom type from molecule definition
-            iAtomTypes = np.array([curbox.MolData[disp.molType].atomtypes[0]])
-            # Convert atom type string to integer using the atomtype dictionary
-            if hasattr(curbox, 'atomtype_dict'):
-                iAtomTypes = np.array([curbox.atomtype_dict[iAtomTypes[0]]])
-            else:
-                # Default to type 0 for LJ systems
-                iAtomTypes = np.array([0])
-        else:
-            iAtomTypes = disp.AtomType
-
+        iAtomTypes = disp.atomTypes
         jAtomTypes = curbox.AtomType
         
         #Compute the squared distances of the new positions
@@ -327,6 +315,7 @@ class EasyPairCut(ForceField):
         rx = rx.reshape(-1, 3)
         rx = curbox.boundary(rx)
         rsq = np.sum(rx**2, axis=1).reshape(-1)
+        print(f"rsq: {rsq}")
         
         
         within_cutoff = rsq < self.rCutSq
@@ -336,19 +325,15 @@ class EasyPairCut(ForceField):
 
         # Check if any pairs are within the cutoff
         if self.rMinTable is not None:
-            rmin_ij = self.rMinTable[iAtomTypes[0], jAtomTypes]
+            rmin_ij = self.rMinTable[iAtomTypes, jAtomTypes]
             rmin_ij = rmin_ij.reshape(-1)
             accept = np.all(rsq >= rmin_ij)
             if not accept:
                 return 0.0, False
 
-        # For addition moves, use the new atom type; otherwise use existing atom types
-        if hasattr(disp, 'addition') and disp.addition:
-            new_atom_type = iAtomTypes[0]
-        else:
-            new_atom_type = curbox.AtomType[disp.atmIndicies[0]]
 
-        E_pair = self.pair_function(rsq, new_atom_type, jAtomTypes_new)
+
+        E_pair = self.pair_function(rsq, iAtomTypes, jAtomTypes_new)
         E_Diff += np.sum(E_pair)
         
 
@@ -380,29 +365,35 @@ class EasyPairCut(ForceField):
         #I will update this later when the neighbor list is implemented
         mask = np.where(molIndx != disp.molIndx)
         cut_list = atoms[mask]
+        old_atoms = atoms[atom_indicies]
         jAtomTypes = curbox.AtomType[mask]
-        jAtomTypes_new = curbox.AtomType[atom_indicies]
+        jAtomTypes_oldpos = curbox.AtomType[atom_indicies]
         
         #Compute the squared distances of the new positions
-        rx = cut_list[None, :, :] - atoms[atom_indicies, None, :]
+        rx = cut_list[None, :, :] - old_atoms[:, None, :]
         rx = rx.reshape(-1, 3)
         rx = curbox.boundary(rx)
         rsq = np.sum(rx**2, axis=1).reshape(-1)
         
-        # Check if any pairs are within the cutoff
-        if self.rMinTable is not None:
-            rmin_ij = self.rMinTable[jAtomTypes_new, jAtomTypes]
-            rmin_ij = rmin_ij.reshape(-1)
-            accept = np.all(rsq >= rmin_ij)
-            if not accept:
-                return 0.0, False
+        print(f"rsq: {rsq}")
+        
+        # This check is not needed for deletion moves since it means a failure of another move to check the rMin
+        # Thus this is an optional check
+        
+        if self.checkOldrMin:
+            if self.rMinTable is not None:
+                rmin_ij = self.rMinTable[jAtomTypes_oldpos, jAtomTypes]
+                rmin_ij = rmin_ij.reshape(-1)
+                accept = np.all(rsq >= rmin_ij)
+                if not accept:
+                    return 0.0, False
 
         
         within_cutoff = rsq < self.rCutSq
         rsq = rsq[within_cutoff]
         jAtomTypes_new = jAtomTypes[within_cutoff]
 
-        E_pair = self.pair_function(rsq, jAtomTypes_new, jAtomTypes)
+        E_pair = self.pair_function(rsq, jAtomTypes_oldpos, jAtomTypes_new)
         E_Diff -= np.sum(E_pair)
         
 
