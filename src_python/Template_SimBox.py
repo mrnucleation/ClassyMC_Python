@@ -106,19 +106,6 @@ class SimBox(ClassyClass):
         """Corresponds to GetTypeAtoms"""
         return self.TypeFirst[iType], self.TypeLast[iType]
     
-    def get_mol_data(self, global_indx):
-        """Corresponds to GetMolData"""
-        mol_start = self.MolStartIndx[global_indx]
-        mol_end = self.MolEndIndx[global_indx]
-        mol_type = self.MolType[mol_start]
-        # Return as dictionary for Python convention
-        return {
-            'molStart': mol_start,
-            'molEnd': mol_end,
-            'molType': mol_type,
-            'slice': (mol_start, mol_end)
-        }
-    
     def build_neigh_list(self):
         """Corresponds to BuildNeighList"""
         pass

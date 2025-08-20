@@ -118,6 +118,17 @@ class SimpleBox(SimBox):
     def get_molindicies(self) -> np.ndarray:
         return list(set(self.MolIndx))
     # -------------------------------------------------------------------------
+    def get_dimensions(self):
+        """
+        Corresponds to SimpleBox_GetDimensions
+        Get the dimensions of the simulation box.
+        For SimpleBox (wall-less), returns None indicating no boundaries.
+
+        Returns:
+            None: SimpleBox has no explicit boundaries
+        """
+        return None
+    # -------------------------------------------------------------------------
     def get_moldetails(self, molIndx: int) -> Dict[str, Any]:
         """
         Get details of a molecule by its index.
@@ -303,8 +314,12 @@ class SimpleBox(SimBox):
         """
         Corresponds to SimpleBox_ComputeIntraEnergyDelta
         Compute change in intramolecular energy due to displacement
+        
+        Incomplete implementation.
         """
         E_Intra = 0.0
+        
+        return 0.0, True
         
         if hasattr(disp[0], 'molType') and hasattr(disp[0], 'molIndx'):
             molType = disp[0].molType
@@ -837,7 +852,21 @@ class SimpleBox(SimBox):
         Convert reduced coordinates to real coordinates (default: no transformation)
         """
         return np.array(reduced_coords)
-    
+    # -------------------------------------------------------------------------
+    def pick_random_molecule_type(self):
+        """
+        Randomly pick one molecule type from the simulation box.
+        
+        Returns:
+            int: Random molecule type index (0-based)
+        """
+        import random
+        
+        if self.nMolTypes <= 0:
+            raise ValueError("Cannot pick random molecule type: no molecule types available")
+        
+        # Generate random molecule type index (0 to nMolTypes-1)
+        return random.randint(0, self.nMolTypes - 1)
     # -------------------------------------------------------------------------
     def pick_random_molecule(self):
         """

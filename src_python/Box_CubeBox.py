@@ -55,7 +55,7 @@ class CubeBox(SimpleBox):
         Returns the box boundaries as a list of [min, max] pairs for each dimension
         """
         dimensions = []
-        for i in range(self.nDimension):
+        for i in range(self.nDimensions):
             dimensions.append([-self.boxL2, self.boxL2])
         return dimensions
     #--------------------------------------------------------------------------------------------------

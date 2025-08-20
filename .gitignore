@@ -1,5 +1,6 @@
 objects/*.o
 mods/*
+*.pyc
 profiling/*
 **/Config_*.clssy
 **/classyMC

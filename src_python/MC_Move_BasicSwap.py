@@ -14,42 +14,31 @@ from Template_MCMove import MCMove
 from CoordinateTypes import Addition, Deletion
 from VarPrecision import dp
 
-
+#===============================================================================================================
 class BasicSwap(MCMove):
     """
     Basic swap Monte Carlo move for grand canonical simulations.
     Corresponds to the Fortran BasicSwap type.
     """
-    
+    #-----------------------------------------------------------------------------------------------------------
     def __init__(self):
         super().__init__()
-        
+
         # Basic swap parameters
         self.verbose = True
         self.proportional = True
         self.tuneMax = True
         self.limit = 5.0
         self.targAccpt = 50.0
-        
+
         # Rejection counters
         self.ovlaprej = 0
         self.constrainrej = 0
         self.detailedrej = 0
-        
-        # Displacement arrays
-        self.newPart = []  # Will be allocated in prologue
-        self.oldPart = [Deletion()]
-    
-    def constructor(self):
-        """
-        Corresponds to BasicSwap_Constructor
-        Initialize the move
-        """
-        # Initialize box probabilities if not set
-        if len(self.boxProb) == 0:
-            # Default to single box
-            self.boxProb = np.array([1.0], dtype=dp)
-    
+
+           
+   
+    #-----------------------------------------------------------------------------------------------------------
     def full_move(self, trial_box):
         """
         Corresponds to BasicSwap_FullMove
@@ -66,6 +55,7 @@ class BasicSwap(MCMove):
         else:
             return self.swap_out(trial_box)
     
+    #-----------------------------------------------------------------------------------------------------------
     def swap_in(self, trial_box):
         """
         Corresponds to BasicSwap_SwapIn
@@ -80,51 +70,48 @@ class BasicSwap(MCMove):
         self.atmps += 1.0
         accept = True
         
-        # Select molecule type to add
-        nMolTypes = len(trial_box.MolData) if hasattr(trial_box, 'MolData') else 1
-        nType = int(nMolTypes * random())
-        
-        if trial_box.NMol[nType] + 1 > trial_box.NMolMax[nType]:
+        # Select molecule type to add using the new random selection function
+        type_data = trial_box.pick_random_molecule_type()
+        if type_data is None:
             return False
         
-        # Get molecule data
-        nMove = trial_box.NMol[nType] + 1
-        nMove = trial_box.MolGlobalIndx[nType, nMove - 1]
-        mol_data = trial_box.get_mol_data(nMove)
-        molType = mol_data['molType']
-        molStart = mol_data['molStart']
-        molEnd = mol_data['molEnd']
+        molType = type_data['type_number']
+        molData = type_data['type_object']
         
-        # Set up new molecule atoms
-        nAtoms = molEnd - molStart + 1
-        for iAtom in range(nAtoms):
-            atomIndx = molStart + iAtom - 1
-            self.newPart[iAtom].molType = nType
-            self.newPart[iAtom].molIndx = nMove
-            self.newPart[iAtom].atmIndx = atomIndx
+        nAtoms = molData.nAtoms
+        nMove = trial_box.nMolTotal  # Next available molecule index
+        
+        
         
         # Generate random position for new molecule
-        # This is a simplified implementation
-        for iAtom in range(nAtoms):
-            self.newPart[iAtom].x_new = trial_box.boxL * (2.0 * random() - 1.0)
-            self.newPart[iAtom].y_new = trial_box.boxL * (2.0 * random() - 1.0)
-            self.newPart[iAtom].z_new = trial_box.boxL * (2.0 * random() - 1.0)
+        newPositions
+        
+        # Create coordinates for the new molecule (would need proper placement logic)
+        coords = np.random.rand(nAtoms, trial_box.nDimensions) * 10.0  # Placeholder random placement
+        atom_types = trial_box.MolData[nType].atomtypes
+        
+        # Create Addition displacement
+        disp = Addition(molType=nType, 
+                        molIndx=nMove, 
+                        atomTypes=atom_types, 
+                        newPositions=coords)
+        
         
         # Check constraints
-        if not trial_box.check_constraint(self.newPart[:nAtoms]):
+        if not trial_box.check_constraint(disp):
             self.constrainrej += 1
             return False
         
         # Calculate energy
-        e_inter, e_intra, e_diff, accept = trial_box.compute_energy_delta(
-            self.newPart[:nAtoms], self.tempList, self.tempNnei, computeintra=True
+        e_inter, e_intra, e_diff = trial_box.compute_energy_delta(
+            disp, self.tempList, self.tempNnei, computeintra=True
         )
-        if not accept:
+        if e_diff is False:  # energy calculation failed
             self.ovlaprej += 1
-            return accept
+            return False
         
         # Check post-energy constraints
-        if not trial_box.check_post_energy(self.newPart[:nAtoms], e_diff):
+        if not trial_box.check_post_energy([disp], e_diff):
             self.constrainrej += 1
             return False
         
@@ -135,20 +122,20 @@ class BasicSwap(MCMove):
         # Get extra terms (chemical potential)
         from CommonSampling import sampling
         if sampling is not None:
-            extra_terms = sampling.get_extra_terms(self.newPart[:nAtoms], trial_box)
+            extra_terms = sampling.get_extra_terms([disp], trial_box)
         else:
             extra_terms = 0.0
         
         # Accept/reject
         if sampling is not None:
-            accept = sampling.make_decision(trial_box, e_diff, self.newPart[:nAtoms], in_prob=Prob, extra_in=extra_terms)
+            accept = sampling.make_decision(trial_box, e_diff, [disp], in_prob=Prob, extra_in=extra_terms)
         else:
             accept = True
         
         if accept:
             self.accpt += 1.0
-            trial_box.update_energy(e_diff, e_inter, e_intra)
-            trial_box.update_position(self.newPart[:nAtoms], self.tempList, self.tempNnei)
+            trial_box.update_energy(e_diff)
+            trial_box.update_position(disp)
         else:
             self.detailedrej += 1
         
@@ -171,7 +158,7 @@ class BasicSwap(MCMove):
         # Select molecule to remove
         nTarget = self.uniform_molecule_select(trial_box)
         mol_data = trial_box.get_mol_data(nTarget)
-        molType = mol_data['molType']
+        molType, nAtoms, atomIndicies, molStart, molEnd = self._extract_mol_info(mol_data, nTarget)
         
         if trial_box.NMol[molType] - 1 < trial_box.NMolMin[molType]:
             return False
@@ -222,6 +209,7 @@ class BasicSwap(MCMove):
         
         return accept
     
+    #-----------------------------------------------------------------------------------------------------------
     def prologue(self):
         """
         Corresponds to BasicSwap_Prologue
@@ -236,6 +224,7 @@ class BasicSwap(MCMove):
         
         print(f"(Basic Swap) Move initialized")
     
+    #-----------------------------------------------------------------------------------------------------------
     def epilogue(self):
         """
         Corresponds to BasicSwap_Epilogue
@@ -252,6 +241,7 @@ class BasicSwap(MCMove):
             print(f"Basic Swap, Rejections due to constraint: {self.constrainrej:15d}")
             print(f"Basic Swap, Rejections due to detailed balance: {self.detailedrej:15d}")
     
+    #-----------------------------------------------------------------------------------------------------------
     def process_io(self, line: str) -> int:
         """
         Corresponds to BasicSwap_ProcessIO
@@ -277,3 +267,5 @@ class BasicSwap(MCMove):
             return -1
         
         return 0 
+    #-----------------------------------------------------------------------------------------------------------
+#===============================================================================================================
