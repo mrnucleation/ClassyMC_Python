@@ -10,9 +10,10 @@ import numpy as np
 import sys
 import math
 from random import random
-from Template_MCMove import MCMove
-from CoordinateTypes import Addition, Deletion
-from VarPrecision import dp
+from .Template_MCMove import MCMove
+from .CoordinateTypes import Addition, Deletion
+from .VarPrecision import dp
+from .CommonSampling import sampling
 
 #===============================================================================================================
 class BasicSwap(MCMove):
@@ -54,7 +55,6 @@ class BasicSwap(MCMove):
             return self.swap_in(trial_box)
         else:
             return self.swap_out(trial_box)
-    
     #-----------------------------------------------------------------------------------------------------------
     def swap_in(self, trial_box):
         """
@@ -127,7 +127,6 @@ class BasicSwap(MCMove):
         Prob = vol/(trial_box.nMolTotal+1 )
         #Prob = GasProb*Prob/GenProb       
         # Get extra terms (chemical potential)
-        from CommonSampling import sampling
         if sampling is not None:
             extra_terms = sampling.get_extra_terms(disp, trial_box)
         else:
@@ -178,20 +177,20 @@ class BasicSwap(MCMove):
         
         
         # Check constraints
-        if not trial_box.check_constraint(self.oldPart):
+        if not trial_box.check_constraint(disp):
             self.constrainrej += 1
             return False
         
         # Calculate energy
         e_inter, e_intra, e_diff, accept = trial_box.compute_energy_delta(
-            self.oldPart, self.tempList, self.tempNnei, computeintra=True
+            disp, self.tempList, self.tempNnei, computeintra=True
         )
         if not accept:
             self.ovlaprej += 1
             return accept
         
         # Check post-energy constraints
-        if not trial_box.check_post_energy(self.oldPart, e_diff):
+        if not trial_box.check_post_energy(diso, e_diff):
             self.constrainrej += 1
             return False
         
@@ -200,9 +199,8 @@ class BasicSwap(MCMove):
         Prob = trial_box.nMolTotal/vol
         
         # Get extra terms (chemical potential)
-        from CommonSampling import sampling
         if sampling is not None:
-            extra_terms = sampling.get_extra_terms(self.oldPart, trial_box)
+            extra_terms = sampling.get_extra_terms(disp, trial_box)
         else:
             extra_terms = 0.0
         
@@ -220,7 +218,14 @@ class BasicSwap(MCMove):
             self.detailedrej += 1
         
         return accept
-    
+    #-----------------------------------------------------------------------------------------------------------
+    def get_accept_rate(self):
+        """
+        Corresponds to BasicSwap_GetAcceptRate
+        Get the acceptance rate for the move
+        """
+        return self.accpt / self.atmps
+   
     #-----------------------------------------------------------------------------------------------------------
     def prologue(self):
         """
