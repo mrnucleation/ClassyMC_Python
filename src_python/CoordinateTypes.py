@@ -47,7 +47,6 @@ class Addition:
     """
     #-------------------------------------------------------------
     def __init__(self, molType: int, molIndx: int, atomTypes: np.ndarray, newPositions: np.ndarray):
-        self.addition = True
         self.X = newPositions
         self.molIndx = molIndx
         self.atomTypes = atomTypes
@@ -65,7 +64,6 @@ class Deletion:
     
     def __init__(self, molType: int, molIndx: int, atomTypes: np.ndarray, atomIndicies: np.ndarray):
         # For deletion, we don't have new positions, so pass empty array
-        self.deletion = True
         self.molIndx = molIndx
         self.atomTypes = atomTypes
         self.molType = molType

@@ -81,17 +81,23 @@ class BasicSwap(MCMove):
         nAtoms = molData.nAtoms
         nMove = trial_box.nMolTotal  # Next available molecule index
         
+        box_dimensions = trial_box.get_dimensions()
         
+        low, high = box_dimensions[:,0], box_dimensions[:, 1]
         
-        # Generate random position for new molecule
-        newPositions
+        # Generate random position for the insertion point of the new molecule
+        newPositions = np.random.uniform(low, high)
+        
+        #Create new positions for the molecule (unimplemented currently)
+        # Temporaily assumes a single atom till proper constructors are integrated
+        coords = newPositions.reshape(1, newPositions.shape)
+        
         
         # Create coordinates for the new molecule (would need proper placement logic)
-        coords = np.random.rand(nAtoms, trial_box.nDimensions) * 10.0  # Placeholder random placement
-        atom_types = trial_box.MolData[nType].atomtypes
+        atom_types = molData.atomtypes
         
         # Create Addition displacement
-        disp = Addition(molType=nType, 
+        disp = Addition(molType=molType, 
                         molIndx=nMove, 
                         atomTypes=atom_types, 
                         newPositions=coords)
@@ -111,24 +117,25 @@ class BasicSwap(MCMove):
             return False
         
         # Check post-energy constraints
-        if not trial_box.check_post_energy([disp], e_diff):
+        if not trial_box.check_post_energy(disp, e_diff):
             self.constrainrej += 1
             return False
         
         # Calculate acceptance probability
         # For basic swap, this is just the standard grand canonical acceptance
-        Prob = 1.0  # Simplified - would need proper calculation
-        
+        vol = trial_box.volume
+        Prob = vol/(trial_box.nMolTotal+1 )
+        #Prob = GasProb*Prob/GenProb       
         # Get extra terms (chemical potential)
         from CommonSampling import sampling
         if sampling is not None:
-            extra_terms = sampling.get_extra_terms([disp], trial_box)
+            extra_terms = sampling.get_extra_terms(disp, trial_box)
         else:
             extra_terms = 0.0
         
         # Accept/reject
         if sampling is not None:
-            accept = sampling.make_decision(trial_box, e_diff, [disp], in_prob=Prob, extra_in=extra_terms)
+            accept = sampling.make_decision(trial_box, e_diff, disp, in_prob=Prob, extra_in=extra_terms)
         else:
             accept = True
         
@@ -140,7 +147,7 @@ class BasicSwap(MCMove):
             self.detailedrej += 1
         
         return accept
-    
+    #-----------------------------------------------------------------------------------------------
     def swap_out(self, trial_box):
         """
         Corresponds to BasicSwap_SwapOut
@@ -156,15 +163,19 @@ class BasicSwap(MCMove):
         accept = True
         
         # Select molecule to remove
-        nTarget = self.uniform_molecule_select(trial_box)
-        mol_data = trial_box.get_mol_data(nTarget)
-        molType, nAtoms, atomIndicies, molStart, molEnd = self._extract_mol_info(mol_data, nTarget)
+        molinfo = trial_box.pick_random_molecule()
+        molType = molinfo['mol_type']
         
         if trial_box.NMol[molType] - 1 < trial_box.NMolMin[molType]:
             return False
         
-        self.oldPart[0].molType = molType
-        self.oldPart[0].molIndx = nTarget
+        
+        disp = Deletion(molType=molinfo['mol_type'],
+                        molIndx=molinfo['mol_index'], 
+                        atomTypes=molinfo['atom_types'], 
+                        atomIndicies=molinfo['atomindicies']
+                        )
+        
         
         # Check constraints
         if not trial_box.check_constraint(self.oldPart):
@@ -185,7 +196,8 @@ class BasicSwap(MCMove):
             return False
         
         # Calculate acceptance probability
-        Prob = 1.0  # Simplified - would need proper calculation
+        vol = trial_box.volume
+        Prob = trial_box.nMolTotal/vol
         
         # Get extra terms (chemical potential)
         from CommonSampling import sampling
@@ -196,14 +208,14 @@ class BasicSwap(MCMove):
         
         # Accept/reject
         if sampling is not None:
-            accept = sampling.make_decision(trial_box, e_diff, self.oldPart, in_prob=Prob, extra_in=extra_terms)
+            accept = sampling.make_decision(trial_box, e_diff, disp, in_prob=Prob, extra_in=extra_terms)
         else:
             accept = True
         
         if accept:
             self.accpt += 1.0
             trial_box.update_energy(e_diff, e_inter, e_intra)
-            trial_box.delete_mol(self.oldPart[0].molIndx)
+            trial_box.update_position(disp)
         else:
             self.detailedrej += 1
         

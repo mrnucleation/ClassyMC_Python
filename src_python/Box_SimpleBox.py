@@ -483,6 +483,8 @@ class SimpleBox(SimBox):
             self.AtomType = np.concatenate((self.AtomType, disp.atomTypes), axis=0)
             self.MolType = np.concatenate((self.MolType, np.full(disp.X.shape[0], disp.molType)), axis=0)
             self.AtomType = np.concatenate((self.AtomType, disp.atomTypes), axis=0)
+            
+            self.nMolTotal += 1
             #self.centerMass = np.concatenate((self.centerMass, np.zeros((1, 3))), axis=0)
             #self.compute_cm(disp.molIndx)
         elif isinstance(disp, Deletion):
@@ -490,7 +492,9 @@ class SimpleBox(SimBox):
             self.MolIndx = np.delete(self.MolIndx, disp.atomIndicies, axis=0)
             self.AtomType = np.delete(self.AtomType, disp.atomIndicies, axis=0)
             self.MolType = np.delete(self.MolType, disp.atomIndicies, axis=0)
+            self.nMolTotal -= 1
             #self.centerMass = np.delete(self.centerMass, disp.atomIndicies, axis=0)
+            
             
             #Rescale any indicies that are greater than the deleted molecule
             mask = self.MolIndx > disp.molIndx
@@ -900,7 +904,6 @@ class SimpleBox(SimBox):
         mol_data = self.get_mol_data(mol_global_index)
         
         # Get additional information
-        mol_start = mol_data['molStart']
         mol_type = mol_data['molType']
         
         # Find molecule sub-index within its type
@@ -911,7 +914,9 @@ class SimpleBox(SimBox):
                 break
         
         # Get coordinates and center of mass
-        coordinates = self.get_coordinates(slice_range=(mol_start, mol_data['molEnd']))
+        atom_mask = np.where(self.MolIndx == mol_global_index)
+        coordinates = self.atoms[atom_mask]
+        atomtypes = self.AtomType[atom_mask]
         center_of_mass = self.centerMass[mol_global_index, :] if self.centerMass is not None else None
         
         # Return comprehensive molecule information
@@ -919,9 +924,9 @@ class SimpleBox(SimBox):
             'mol_index': mol_global_index,
             'mol_type': mol_type,
             'mol_sub_index': mol_sub_index,
-            'atom_start': mol_start,
-            'atom_end': mol_data['molEnd'],
             'n_atoms': mol_data['nAtoms'],
+            'atomindicies': atom_mask,
+            'atom_types': atomtypes,
             'coordinates': coordinates,
             'center_of_mass': center_of_mass
         }
