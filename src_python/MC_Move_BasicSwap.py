@@ -40,7 +40,7 @@ class BasicSwap(MCMove):
            
    
     #-----------------------------------------------------------------------------------------------------------
-    def full_move(self, trial_box):
+    def full_move(self, trial_box, sampling):
         """
         Corresponds to BasicSwap_FullMove
         Perform a basic swap move (either add or remove molecule)
@@ -52,11 +52,11 @@ class BasicSwap(MCMove):
             bool: Whether the move was accepted
         """
         if random() > 0.5:
-            return self.swap_in(trial_box)
+            return self.swap_in(trial_box, sampling)
         else:
-            return self.swap_out(trial_box)
+            return self.swap_out(trial_box, sampling)
     #-----------------------------------------------------------------------------------------------------------
-    def swap_in(self, trial_box):
+    def swap_in(self, trial_box, sampling):
         """
         Corresponds to BasicSwap_SwapIn
         Perform a swap-in move (add molecule)
@@ -78,7 +78,9 @@ class BasicSwap(MCMove):
         molType = type_data['type_number']
         molData = type_data['type_object']
         
-        nAtoms = molData.nAtoms
+        molinfo = trial_box.get_moldetails(molType)
+        
+        nAtoms = molData.n_atoms
         nMove = trial_box.nMolTotal  # Next available molecule index
         
         box_dimensions = trial_box.get_dimensions()
@@ -90,16 +92,19 @@ class BasicSwap(MCMove):
         
         #Create new positions for the molecule (unimplemented currently)
         # Temporaily assumes a single atom till proper constructors are integrated
-        coords = newPositions.reshape(1, newPositions.shape)
+        coords = newPositions.reshape(1, -1)
         
         
         # Create coordinates for the new molecule (would need proper placement logic)
         atom_types = molData.atomtypes
         
+        # Convert atom type strings to integer indices using the box's atomtype_dict
+        atom_type_indices = np.array([trial_box.atomtype_dict[atom_type] for atom_type in atom_types])
+        
         # Create Addition displacement
         disp = Addition(molType=molType, 
                         molIndx=nMove, 
-                        atomTypes=atom_types, 
+                        atomTypes=atom_type_indices, 
                         newPositions=coords)
         
         
@@ -147,7 +152,7 @@ class BasicSwap(MCMove):
         
         return accept
     #-----------------------------------------------------------------------------------------------
-    def swap_out(self, trial_box):
+    def swap_out(self, trial_box, sampling):
         """
         Corresponds to BasicSwap_SwapOut
         Perform a swap-out move (remove molecule)
@@ -182,15 +187,15 @@ class BasicSwap(MCMove):
             return False
         
         # Calculate energy
-        e_inter, e_intra, e_diff, accept = trial_box.compute_energy_delta(
+        e_inter, e_intra, e_diff = trial_box.compute_energy_delta(
             disp, self.tempList, self.tempNnei, computeintra=True
         )
-        if not accept:
+        if e_diff is False:  # energy calculation failed
             self.ovlaprej += 1
-            return accept
+            return False
         
         # Check post-energy constraints
-        if not trial_box.check_post_energy(diso, e_diff):
+        if not trial_box.check_post_energy(disp, e_diff):
             self.constrainrej += 1
             return False
         
@@ -212,7 +217,7 @@ class BasicSwap(MCMove):
         
         if accept:
             self.accpt += 1.0
-            trial_box.update_energy(e_diff, e_inter, e_intra)
+            trial_box.update_energy(e_diff)
             trial_box.update_position(disp)
         else:
             self.detailedrej += 1

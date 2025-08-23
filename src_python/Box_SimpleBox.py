@@ -862,7 +862,9 @@ class SimpleBox(SimBox):
         Randomly pick one molecule type from the simulation box.
         
         Returns:
-            int: Random molecule type index (0-based)
+            dict: Dictionary containing molecule type information with keys:
+                - 'type_number': Molecule type index (0-based)
+                - 'type_object': Molecule_Type object for this type
         """
         import random
         
@@ -870,7 +872,12 @@ class SimpleBox(SimBox):
             raise ValueError("Cannot pick random molecule type: no molecule types available")
         
         # Generate random molecule type index (0 to nMolTypes-1)
-        return random.randint(0, self.nMolTypes - 1)
+        type_index = random.randint(0, self.nMolTypes - 1)
+        
+        return {
+            'type_number': type_index,
+            'type_object': self.MolData[type_index]
+        }
     # -------------------------------------------------------------------------
     def pick_random_molecule(self):
         """
@@ -906,12 +913,11 @@ class SimpleBox(SimBox):
         # Get additional information
         mol_type = mol_data['molType']
         
-        # Find molecule sub-index within its type
-        mol_sub_index = -1
-        for i in range(self.NMol[mol_type]):
-            if self.MolGlobalIndx[mol_type, i] == mol_global_index:
-                mol_sub_index = i
-                break
+        # Find molecule sub-index within its type by counting molecules of the same type
+        mol_sub_index = 0
+        for mol_idx in range(mol_global_index):
+            if mol_idx < len(self.MolType) and self.MolType[np.where(self.MolIndx == mol_idx)[0][0]] == mol_type:
+                mol_sub_index += 1
         
         # Get coordinates and center of mass
         atom_mask = np.where(self.MolIndx == mol_global_index)

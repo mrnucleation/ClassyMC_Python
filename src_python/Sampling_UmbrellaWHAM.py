@@ -14,9 +14,7 @@ from typing import Optional, List, Tuple
 from .Template_AcceptRule import AcceptRule
 from .VarPrecision import dp
 
-def grnd():
-    """Generate random number between 0 and 1"""
-    return np.random.random()
+
 
 class UmbrellaWHAM(AcceptRule):
     """

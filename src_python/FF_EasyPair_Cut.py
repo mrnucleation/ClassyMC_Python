@@ -318,18 +318,17 @@ class EasyPairCut(ForceField):
         print(f"rsq: {rsq}")
         
         
-        within_cutoff = rsq < self.rCutSq
-        rsq = rsq[within_cutoff]
-        jAtomTypes_new = jAtomTypes[within_cutoff]
-
-
-        # Check if any pairs are within the cutoff
+        # Check if any pairs are within the minimum distance (before filtering by cutoff)
         if self.rMinTable is not None:
             rmin_ij = self.rMinTable[iAtomTypes, jAtomTypes]
             rmin_ij = rmin_ij.reshape(-1)
             accept = np.all(rsq >= rmin_ij)
             if not accept:
                 return 0.0, False
+
+        within_cutoff = rsq < self.rCutSq
+        rsq = rsq[within_cutoff]
+        jAtomTypes_new = jAtomTypes[within_cutoff]
 
 
 
