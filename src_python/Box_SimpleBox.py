@@ -185,10 +185,10 @@ class SimpleBox(SimBox):
         
         # Compute intermolecular energy using energy function
         if self.EFunc is not None:
-            print("Computing intermolecular energy...")
-            print(f"Number of energy functions: {self.EFunc[0]}")
+            #print("Computing intermolecular energy...")
+            #print(f"Number of energy functions: {self.EFunc[0]}")
             E_Inter, accept = self.EFunc[0].detailed_calc(self)
-            print(E_Inter, accept)
+            #print(E_Inter, accept)
             if not accept:
                 return False
             self.E_Inter = E_Inter
@@ -377,7 +377,7 @@ class SimpleBox(SimBox):
         #    raise IndexError(f"Invalid molecule index: {global_indx}")
  
         atomIndicies = np.where(self.MolIndx == global_indx)[0]
-        print(atomIndicies)
+        #print(atomIndicies)
         molType = self.MolType[atomIndicies[0]]
         nAtoms = len(atomIndicies)
         
@@ -467,7 +467,7 @@ class SimpleBox(SimBox):
         Update atomic positions based on displacement
         """
         
-        print(type(disp))
+        #print(type(disp))
         if isinstance(disp, Displacement):
             self.atoms[disp.atmIndicies, :] = disp.X
             self.boundary(self.atoms[disp.atmIndicies, :])
@@ -1000,7 +1000,7 @@ class SimpleBox(SimBox):
             cell=cell,  # No periodic boundary conditions by default
             pbc=pbc  # No periodic boundary conditions
         )
-        print(ase_atoms)
+        #print(ase_atoms)
         
         
         return ase_atoms
