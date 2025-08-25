@@ -470,7 +470,7 @@ class SimpleBox(SimBox):
         #print(type(disp))
         if isinstance(disp, Displacement):
             self.atoms[disp.atmIndicies, :] = disp.X
-            self.boundary(self.atoms[disp.atmIndicies, :])
+            self.atoms[disp.atmIndicies, :] = self.boundary(self.atoms[disp.atmIndicies, :])
             # Update center of mass for the moved molecule
             #self.compute_cm(disp.molIndx)
         elif isinstance(disp, Addition):
