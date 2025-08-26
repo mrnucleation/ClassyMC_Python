@@ -31,11 +31,25 @@ class EasyPairCut(ForceField):
         self.rMin = None         
         self.rMinTable = None    
         
-        self.rCut = 5.0
-        self.rCutSq = 25.0
+        self._rCut = 5.0
+        self._rCutSq = 25.0
         
         self.checkOldrMin = True
-    
+    #-------------------------------------------------------------------------
+    @property
+    def rCut(self) -> float:
+        """
+        Get the cutoff distance
+        """
+        return self._rCut
+    #-------------------------------------------------------------------------
+    @rCut.setter
+    def rCut(self, rCut: float):
+        """
+        Set the cutoff distance
+        """
+        self._rCut = rCut
+        self._rCutSq = rCut**2
     #-------------------------------------------------------------------------
     def pair_function(self, rsq: float, atmtype1: int, atmtype2: int) -> float:
         """

@@ -114,6 +114,7 @@ def setup_lj_system(coord_filename):
     box = load_coords(coord_filename, [LJ_type])
     box.temperature = 0.7
     box.beta = 1.0 / 0.7
+    box.volume = box.boxL**3
 
     print(f"Box ID: {box.boxID}")
     print(f"Box Dimensions: {box.boxL}")
