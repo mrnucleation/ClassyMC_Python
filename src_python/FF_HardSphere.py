@@ -8,34 +8,36 @@ rejection) at shorter distances.
 
 This is often used for:
 - Reference systems in thermodynamic calculations
-- Testing Monte Carlo algorithms  
+- Testing Monte Carlo algorithms
 - Simple excluded volume effects
 - Liquid structure studies
+
+This implementation inherits from EasyPairCut for efficient energy calculations.
 """
 
 import numpy as np
 import sys
 from typing import Tuple, List, Optional
-from .Template_Forcefield import ForceField
+from .FF_EasyPair_Cut import EasyPairCut
 from .VarPrecision import dp
 
 
-class HardSphere(ForceField):
+class HardSphere(EasyPairCut):
     """
     Hard sphere force field implementation.
     Corresponds to the Fortran HardSphere type.
-    
+
     V(r) = infinity for r < sigma
     V(r) = 0 for r >= sigma
     """
-    
+
     def __init__(self, nAtomTypes=1):
         super().__init__()
-        
+
         # Hard sphere specific parameters
         self.sig = None          # HS diameters per type
         self.sigTable = None     # Mixed HS diameters (stored as sigma^2)
-        
+
         self.nAtomTypes = nAtomTypes
     
     def constructor(self, nAtomTypes=None):
@@ -48,321 +50,117 @@ class HardSphere(ForceField):
         
         # Allocate per-type arrays
         self.sig = np.full(self.nAtomTypes, 1.0, dtype=dp)
-        
+
         # Allocate mixing tables (stored as sigma^2 for efficiency)
         self.sigTable = np.full((self.nAtomTypes, self.nAtomTypes), 1.0, dtype=dp)
-        
+
+        # Initialize rMin arrays for EasyPairCut compatibility
+        self.rMin = np.full(self.nAtomTypes, 0.5, dtype=dp)  # Will be updated with actual sigma values
+        self.rMinTable = np.full((self.nAtomTypes, self.nAtomTypes), 0.25, dtype=dp)  # Will be updated
+
         # Set default cutoff to max diameter
         self.rCut = 5.0
         self.rCutSq = 25.0
         
         print(f"HardSphere Force Field initialized with {self.nAtomTypes} atom types")
-    
+
+    def pair_function(self, rsq: float, atmtype1: int, atmtype2: int) -> float:
+        """
+        Calculate hard sphere pair energy
+        Corresponds to the core logic of hard sphere interactions
+
+        Args:
+            rsq: Distance squared between atoms
+            atmtype1: Type of first atom (0-indexed)
+            atmtype2: Type of second atom (0-indexed)
+
+        Returns:
+            float: Hard sphere energy (0 or infinity)
+        """
+        if self.sigTable is None:
+            return 0.0
+
+        sig_sq = self.sigTable[atmtype1, atmtype2]
+
+        # Return infinity for overlap, 0 otherwise
+        return float('inf') if rsq < sig_sq else 0.0
+
     def detailed_calc(self, curbox) -> Tuple[float, bool]:
         """
-        Corresponds to Detailed_HardSphere
-        Check for hard sphere overlaps - returns infinite energy if overlapping
-        
+        Check for hard sphere overlaps using EasyPairCut framework
+        Returns infinite energy if overlapping, 0 otherwise
+
         Args:
             curbox: SimBox instance
-            
+
         Returns:
             tuple: (total_energy, accept_flag)
         """
-        atoms = curbox.get_coordinates()
-        
-        curbox.ETable.fill(0.0)
-        
-        # Check all pairs for overlaps
-        for iAtom in range(curbox.nMaxAtoms - 1):
-            if not curbox.is_active(iAtom):
-                continue
-                
-            atmType1 = curbox.AtomType[iAtom]
-            
-            for jAtom in range(iAtom + 1, curbox.nMaxAtoms):
-                if not curbox.is_active(jAtom):
-                    continue
-                    
-                # Skip intramolecular interactions
-                if curbox.MolIndx[jAtom] == curbox.MolIndx[iAtom]:
-                    continue
-                
-                # Calculate distance
-                rx = atoms[iAtom, 0] - atoms[jAtom, 0]
-                ry = atoms[iAtom, 1] - atoms[jAtom, 1]
-                rz = atoms[iAtom, 2] - atoms[jAtom, 2]
-                
-                # Apply periodic boundary conditions
-                rx, ry, rz = curbox.boundary(rx, ry, rz)
-                rsq = rx*rx + ry*ry + rz*rz
-                
-                # Check for overlap
-                atmType2 = curbox.AtomType[jAtom]
-                sig_sq = self.sigTable[atmType1, atmType2] if self.sigTable is not None else 1.0
-                
-                if rsq < sig_sq:
-                    print(f"Hard sphere overlap detected!")
-                    print(f"Distance: {np.sqrt(rsq):.6f}")
-                    print(f"Required distance: {np.sqrt(sig_sq):.6f}")
-                    print(f"Atoms: {iAtom}, {jAtom}")
-                    print(f"Types: {atmType1+1}, {atmType2+1}")
-                    return float('inf'), False
-        
+        # Use the base class detailed_calc which handles distance calculations and overlap detection
+        energy, accept = super().detailed_calc(curbox)
+
+        if not accept:
+            print("Hard sphere overlap detected during detailed calculation!")
+            return float('inf'), False
+
         print("Total Hard Sphere Energy: 0.0 (no overlaps)")
         return 0.0, True
     
     def diff_calc(self, curbox, disp, tempList=None, tempNNei=None) -> Tuple[float, bool]:
         """
-        Corresponds to DiffECalc_HardSphere
-        Check if perturbation causes hard sphere overlaps
-        
+        Check if perturbation causes hard sphere overlaps using EasyPairCut framework
+
         Args:
             curbox: SimBox instance
             disp: List of Perturbation objects
             tempList: Temporary neighbor list
             tempNNei: Temporary neighbor counts
-            
+
         Returns:
             tuple: (energy_difference, accept_flag)
         """
-        accept = True
-        curbox.dETable.fill(0.0)
-        
-        # Determine perturbation type and dispatch accordingly
-        if hasattr(disp[0], 'atmIndx'):
-            # Displacement move
-            accept = self.shift_calc_single(curbox, disp, tempList, tempNNei)
-            
-        elif hasattr(disp[0], 'molType') and hasattr(disp[0], 'addition'):
-            # Addition move
-            accept = self.new_calc(curbox, disp, tempList, tempNNei)
-            
-        elif hasattr(disp[0], 'molType') and hasattr(disp[0], 'deletion'):
-            # Deletion move - always acceptable for hard spheres
-            accept = True
-            
-        elif hasattr(disp[0], 'volNew'):
-            # Volume change move
-            accept = self.ortho_vol_calc(curbox, disp)
-            
-        elif hasattr(disp[0], 'newType') and hasattr(disp[0], 'oldType'):
-            # Atom exchange move
-            accept = self.atom_exchange(curbox, disp)
-            
-        else:
-            print("Unknown Perturbation Type Encountered by HardSphere", file=sys.stderr)
-            return 0.0, False
-        
-        # Hard spheres: energy is always 0 if no overlaps, infinite if overlaps
+        # Use the base class diff_calc which handles all move types
+        energy_diff, accept = super().diff_calc(curbox, disp, tempList, tempNNei)
+
+        # For hard spheres, energy is always 0 if no overlaps, infinite if overlaps
         return 0.0, accept
-    
-    def shift_calc_single(self, curbox, disp, tempList=None, tempNNei=None) -> bool:
-        """
-        Check if displacement moves cause hard sphere overlaps
-        
-        Args:
-            curbox: SimBox instance
-            disp: Displacement perturbations
-            tempList: Optional neighbor list
-            tempNNei: Optional neighbor counts
-            
-        Returns:
-            bool: Accept flag (True if no overlaps)
-        """
-        atoms = curbox.get_coordinates()
-        
-        # Process each displaced atom
-        for displacement in disp:
-            if not hasattr(displacement, 'atmIndx'):
-                continue
-                
-            atmIndx = displacement.atmIndx
-            atmType1 = curbox.AtomType[atmIndx]
-            
-            # Check new position against all other atoms
-            for jAtom in range(curbox.nMaxAtoms):
-                if not curbox.is_active(jAtom) or jAtom == atmIndx:
-                    continue
-                if curbox.MolIndx[jAtom] == curbox.MolIndx[atmIndx]:
-                    continue
-                
-                rx = displacement.x_new - atoms[jAtom, 0]
-                ry = displacement.y_new - atoms[jAtom, 1]
-                rz = displacement.z_new - atoms[jAtom, 2]
-                rx, ry, rz = curbox.boundary(rx, ry, rz)
-                rsq = rx*rx + ry*ry + rz*rz
-                
-                atmType2 = curbox.AtomType[jAtom]
-                sig_sq = self.sigTable[atmType1, atmType2] if self.sigTable is not None else 1.0
-                
-                if rsq < sig_sq:
-                    return False  # Overlap detected
-        
-        return True  # No overlaps
-    
-    def new_calc(self, curbox, disp, tempList=None, tempNNei=None) -> bool:
-        """
-        Check if addition moves cause hard sphere overlaps
-        
-        Args:
-            curbox: SimBox instance
-            disp: Addition perturbations
-            tempList: Temporary neighbor list
-            tempNNei: Temporary neighbor counts
-            
-        Returns:
-            bool: Accept flag (True if no overlaps)
-        """
-        # For hard spheres, just check if new atoms overlap with existing ones
-        atoms = curbox.get_coordinates()
-        
-        for addition in disp:
-            if not hasattr(addition, 'molType'):
-                continue
-                
-            # Check each atom in the new molecule
-            for new_atom in addition.atoms:
-                atmType1 = new_atom.atmType
-                
-                for jAtom in range(curbox.nMaxAtoms):
-                    if not curbox.is_active(jAtom):
-                        continue
-                    
-                    rx = new_atom.x - atoms[0, jAtom]
-                    ry = new_atom.y - atoms[1, jAtom]
-                    rz = new_atom.z - atoms[2, jAtom]
-                    rx, ry, rz = curbox.boundary(rx, ry, rz)
-                    rsq = rx*rx + ry*ry + rz*rz
-                    
-                    atmType2 = curbox.AtomType[jAtom]
-                    sig_sq = self.sigTable[atmType1, atmType2] if self.sigTable is not None else 1.0
-                    
-                    if rsq < sig_sq:
-                        return False  # Overlap detected
-        
-        return True  # No overlaps
-    
-    def ortho_vol_calc(self, curbox, disp) -> bool:
-        """
-        Check if volume change causes hard sphere overlaps
-        
-        Args:
-            curbox: SimBox instance
-            disp: Volume change perturbations
-            
-        Returns:
-            bool: Accept flag (True if no overlaps)
-        """
-        # For volume changes, need to check if scaling causes overlaps
-        vol_ratio = disp[0].volNew / curbox.volume
-        scale_factor = vol_ratio**(1.0/3.0)
-        
-        atoms = curbox.get_coordinates()
-        
-        # Check all pairs with scaled positions
-        for iAtom in range(curbox.nMaxAtoms - 1):
-            if not curbox.is_active(iAtom):
-                continue
-                
-            atmType1 = curbox.AtomType[iAtom]
-            
-            for jAtom in range(iAtom + 1, curbox.nMaxAtoms):
-                if not curbox.is_active(jAtom):
-                    continue
-                    
-                if curbox.MolIndx[jAtom] == curbox.MolIndx[iAtom]:
-                    continue
-                
-                # Calculate scaled distance
-                rx = (atoms[iAtom, 0] - atoms[jAtom, 0]) * scale_factor
-                ry = (atoms[iAtom, 1] - atoms[jAtom, 1]) * scale_factor
-                rz = (atoms[iAtom, 2] - atoms[jAtom, 2]) * scale_factor
-                rx, ry, rz = curbox.boundary(rx, ry, rz)  # Apply new boundary conditions
-                rsq = rx*rx + ry*ry + rz*rz
-                
-                atmType2 = curbox.AtomType[jAtom]
-                sig_sq = self.sigTable[atmType1, atmType2] if self.sigTable is not None else 1.0
-                
-                if rsq < sig_sq:
-                    return False  # Overlap detected
-        
-        return True  # No overlaps
-    
-    def atom_exchange(self, curbox, disp) -> bool:
-        """
-        Check if atom exchange causes hard sphere overlaps
-        
-        Args:
-            curbox: SimBox instance
-            disp: Exchange perturbations
-            
-        Returns:
-            bool: Accept flag (True if no overlaps)
-        """
-        atoms = curbox.get_coordinates()
-        
-        for exchange in disp:
-            if not hasattr(exchange, 'atmIndx'):
-                continue
-                
-            atmIndx = exchange.atmIndx
-            newType = exchange.newType
-            
-            # Check new atom type against all neighbors
-            for jAtom in range(curbox.nMaxAtoms):
-                if not curbox.is_active(jAtom) or jAtom == atmIndx:
-                    continue
-                if curbox.MolIndx[jAtom] == curbox.MolIndx[atmIndx]:
-                    continue
-                
-                rx = atoms[atmIndx, 0] - atoms[jAtom, 0]
-                ry = atoms[atmIndx, 1] - atoms[jAtom, 1]
-                rz = atoms[atmIndx, 2] - atoms[jAtom, 2]
-                rx, ry, rz = curbox.boundary(rx, ry, rz)
-                rsq = rx*rx + ry*ry + rz*rz
-                
-                atmType2 = curbox.AtomType[jAtom]
-                sig_sq = self.sigTable[newType, atmType2] if self.sigTable is not None else 1.0
-                
-                if rsq < sig_sq:
-                    return False  # Overlap detected
-        
-        return True  # No overlaps
+
     
     def single_pair(self, rsq: float, atmtype1: int, atmtype2: int) -> float:
         """
         Calculate hard sphere pair energy
-        
+        Wrapper around pair_function for compatibility
+
         Args:
             rsq: Distance squared between atoms
             atmtype1: Type of first atom
             atmtype2: Type of second atom
-            
+
         Returns:
             float: Hard sphere energy (0 or infinity)
         """
-        if self.sigTable is not None:
-            sig_sq = self.sigTable[atmtype1, atmtype2]
-        else:
-            sig_sq = 1.0
-            
-        return float('inf') if rsq < sig_sq else 0.0
+        return self.pair_function(rsq, atmtype1, atmtype2)
     
     def process_io(self, line: str) -> int:
         """
         Process hard sphere specific input parameters
-        
+
         Args:
             line: Input line to process
-            
+
         Expected formats:
         - type1 sigma (single type)
         - type1 type2 sigma (pair interaction)
-        
+        - rcut value (inherited from EasyPairCut)
+
         Returns:
             int: Status code (0 for success, negative for error)
         """
+        # Handle base EasyPair commands first (like rcut)
+        result = super().process_io(line)
+        if result == 0:
+            return result
+
         parts = line.strip().split()
         if not parts:
             return 0
@@ -384,12 +182,15 @@ class HardSphere(ForceField):
                 
                 # Store single-type parameter
                 self.sig[type1] = sigma
-                
+                self.rMin[type1] = sigma  # For EasyPairCut compatibility
+
                 # Update mixing tables using arithmetic mean
                 for jType in range(self.nAtomTypes):
                     sig_mix = 0.5 * (sigma + self.sig[jType])
                     self.sigTable[type1, jType] = sig_mix**2  # Store as sigma^2
                     self.sigTable[jType, type1] = sig_mix**2
+                    self.rMinTable[type1, jType] = sig_mix**2  # For EasyPairCut overlap detection
+                    self.rMinTable[jType, type1] = sig_mix**2
                 
                 return 0
                 
@@ -407,6 +208,8 @@ class HardSphere(ForceField):
                 # Set pair-specific parameter
                 self.sigTable[type1, type2] = sigma**2  # Store as sigma^2
                 self.sigTable[type2, type1] = sigma**2
+                self.rMinTable[type1, type2] = sigma**2  # For EasyPairCut overlap detection
+                self.rMinTable[type2, type1] = sigma**2
                 
                 return 0
                 
@@ -421,13 +224,14 @@ class HardSphere(ForceField):
     def get_cutoff(self) -> float:
         """
         Get the effective cutoff radius (maximum diameter)
-        
+        Uses the base class cutoff, which is set to the maximum hard sphere diameter
+
         Returns:
             float: Maximum hard sphere diameter
         """
         if self.sig is not None:
             return np.max(self.sig)
-        return self.rCut
+        return super().get_cutoff()
     
     def prologue(self):
         """Initialize hard sphere force field before simulation"""
