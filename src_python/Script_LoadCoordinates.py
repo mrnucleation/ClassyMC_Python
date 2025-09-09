@@ -1,5 +1,5 @@
-from .Box_SimpleBox import SimpleBox
-from .Box_CubeBox import CubeBox
+from src_python.Box_SimpleBox import SimpleBox
+from src_python.Box_CubeBox import CubeBox
 
 
 #===============================================================                

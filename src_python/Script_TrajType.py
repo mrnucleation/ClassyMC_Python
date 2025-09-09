@@ -9,7 +9,7 @@ and other trajectory output formats for molecular simulation data.
 
 import sys
 from typing import Tuple, Dict, List, Type, Optional, Any
-from .VarPrecision import dp
+from src_python.VarPrecision import dp
 
 def GetXCommand(line: str, position: int) -> str:
     """Simple implementation of GetXCommand for parsing input"""

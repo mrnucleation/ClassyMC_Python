@@ -6,8 +6,8 @@ As its name suggests, this sampling style rejects every move. Not sure why
 you will need it, but hey it's here if you do.
 """
 
-from .Template_AcceptRule import AcceptRule
-from .VarPrecision import dp
+from src_python.Template_AcceptRule import AcceptRule
+from src_python.VarPrecision import dp
 from typing import Optional
 
 class AcceptNone(AcceptRule):

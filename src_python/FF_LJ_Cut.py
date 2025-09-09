@@ -24,8 +24,8 @@ Usage:
 import numpy as np
 import sys
 from typing import Optional, Tuple, List
-from .FF_EasyPair_Cut import EasyPairCut
-from .VarPrecision import dp
+from src_python.FF_EasyPair_Cut import EasyPairCut
+from src_python.VarPrecision import dp
 
 
 class LJ_Cut(EasyPairCut):

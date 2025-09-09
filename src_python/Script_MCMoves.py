@@ -7,14 +7,14 @@ Handles parsing input to instantiate the correct Monte Carlo move types.
 
 import sys
 from typing import List, Dict, Optional, Tuple
-from .VarPrecision import dp
+from src_python.VarPrecision import dp
 
 # Import all available Monte Carlo moves
-from .MC_Move_MolTranslation import MolTranslate
-from .MC_Move_IsoVol import IsoVol
-from .MC_Move_BasicSwap import BasicSwap
-from .MC_Move_Delete import Delete
-from .MC_Move_AVBMC import AVBMC
+from src_python.MC_Move_MolTranslation import MolTranslate
+from src_python.MC_Move_IsoVol import IsoVol
+from src_python.MC_Move_BasicSwap import BasicSwap
+from src_python.MC_Move_Delete import Delete
+from src_python.MC_Move_AVBMC import AVBMC
 
 def GetXCommand(line: str, position: int) -> str:
     """Simple implementation to get command at position"""

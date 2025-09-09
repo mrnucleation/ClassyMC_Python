@@ -5,8 +5,8 @@ Corresponds to CommonSampling.f90
 Manages the global sampling instance for the simulation.
 """
 
-from .VarPrecision import dp
-from .Template_AcceptRule import AcceptRule
+from src_python.VarPrecision import dp
+from src_python.Template_AcceptRule import AcceptRule
 from typing import Optional
 
 # Global sampling instance

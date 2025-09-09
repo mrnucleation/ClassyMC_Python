@@ -10,10 +10,10 @@ import numpy as np
 import sys
 import math
 from random import random
-from .Template_MCMove import MCMove
-from .CoordinateTypes import Addition, Deletion
-from .VarPrecision import dp
-from .CommonSampling import sampling
+from src_python.Template_MCMove import MCMove
+from src_python.CoordinateTypes import Addition, Deletion
+from src_python.VarPrecision import dp
+from src_python.CommonSampling import sampling
 
 #===============================================================================================================
 class BasicSwap(MCMove):

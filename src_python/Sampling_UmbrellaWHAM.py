@@ -11,8 +11,8 @@ import math
 import numpy as np
 import sys
 from typing import Optional, List, Tuple
-from .Template_AcceptRule import AcceptRule
-from .VarPrecision import dp
+from src_python.Template_AcceptRule import AcceptRule
+from src_python.VarPrecision import dp
 
 
 

@@ -77,53 +77,9 @@ class HardSphere(EasyPairCut):
         Returns:
             float: Hard sphere energy (0 or infinity)
         """
-        if self.sigTable is None:
-            return 0.0
+        return 0.0
 
-        sig_sq = self.sigTable[atmtype1, atmtype2]
-
-        # Return infinity for overlap, 0 otherwise
-        return float('inf') if rsq < sig_sq else 0.0
-
-    def detailed_calc(self, curbox) -> Tuple[float, bool]:
-        """
-        Check for hard sphere overlaps using EasyPairCut framework
-        Returns infinite energy if overlapping, 0 otherwise
-
-        Args:
-            curbox: SimBox instance
-
-        Returns:
-            tuple: (total_energy, accept_flag)
-        """
-        # Use the base class detailed_calc which handles distance calculations and overlap detection
-        energy, accept = super().detailed_calc(curbox)
-
-        if not accept:
-            print("Hard sphere overlap detected during detailed calculation!")
-            return float('inf'), False
-
-        print("Total Hard Sphere Energy: 0.0 (no overlaps)")
-        return 0.0, True
     
-    def diff_calc(self, curbox, disp, tempList=None, tempNNei=None) -> Tuple[float, bool]:
-        """
-        Check if perturbation causes hard sphere overlaps using EasyPairCut framework
-
-        Args:
-            curbox: SimBox instance
-            disp: List of Perturbation objects
-            tempList: Temporary neighbor list
-            tempNNei: Temporary neighbor counts
-
-        Returns:
-            tuple: (energy_difference, accept_flag)
-        """
-        # Use the base class diff_calc which handles all move types
-        energy_diff, accept = super().diff_calc(curbox, disp, tempList, tempNNei)
-
-        # For hard spheres, energy is always 0 if no overlaps, infinite if overlaps
-        return 0.0, accept
 
     
     def single_pair(self, rsq: float, atmtype1: int, atmtype2: int) -> float:

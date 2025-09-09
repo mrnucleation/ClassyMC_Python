@@ -16,20 +16,20 @@ import sys
 import os
 import time
 from typing import Tuple, Dict, List, Type, Optional, Any, Union
-from .VarPrecision import dp
+from src_python.VarPrecision import dp
 
 # Import all our Script modules
 try:
-    from .Script_Forcefield import script_read_field_file, get_forcefield_data, reset_forcefield_data
-    from .Script_MCMoves import script_mc_moves, get_registered_move_types
-    from .Script_AnalysisType import script_analysis_type, get_registered_analysis_types
-    from .Script_Constraint import script_constraint, get_registered_constraint_types
-    from .Script_TrajType import script_traj_type, get_registered_traj_types
-    from .Script_BondType import get_registered_bond_types
-    from .Script_AngleType import get_registered_angle_types
-    from .Script_TorsionType import get_registered_torsion_types
-    from .Script_FieldType import script_field_type
-    from .Script_Sampling import script_sampling_type
+    from src_python.Script_Forcefield import script_read_field_file, get_forcefield_data, reset_forcefield_data
+    from src_python.Script_MCMoves import script_mc_moves, get_registered_move_types
+    from src_python.Script_AnalysisType import script_analysis_type, get_registered_analysis_types
+    from src_python.Script_Constraint import script_constraint, get_registered_constraint_types
+    from src_python.Script_TrajType import script_traj_type, get_registered_traj_types
+    from src_python.Script_BondType import get_registered_bond_types
+    from src_python.Script_AngleType import get_registered_angle_types
+    from src_python.Script_TorsionType import get_registered_torsion_types
+    from src_python.Script_FieldType import script_field_type
+    from src_python.Script_Sampling import script_sampling_type
 except ImportError as e:
     print(f"WARNING: Some Script modules not available: {e}", file=sys.stderr)
 

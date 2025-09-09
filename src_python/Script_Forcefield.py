@@ -15,14 +15,14 @@ This is the main orchestrator for forcefield file processing.
 import sys
 import json
 from typing import Tuple, Dict, List, Type, Optional, Any, Union
-from .VarPrecision import dp
+from src_python.VarPrecision import dp
 
 # Import our previously created Script modules
 try:
-    from .Script_FieldType import script_field_type
-    from .Script_BondType import script_bond_type  
-    from .Script_AngleType import script_angle_type
-    from .Script_TorsionType import script_torsion_type
+    from src_python.Script_FieldType import script_field_type
+    from src_python.Script_BondType import script_bond_type
+    from src_python.Script_AngleType import script_angle_type
+    from src_python.Script_TorsionType import script_torsion_type
 except ImportError:
     # Fallback functions if modules not available
     def script_field_type(line: str, ff_num: int):
@@ -71,7 +71,7 @@ def LoadFile(filename: str) -> Tuple[List[str], List[int]]:
 # Main Forcefield File Reading Functions
 # =============================================================================
 
-from .Molecule_Definition import Molecule_Type
+from src_python.Molecule_Definition import Molecule_Type
 
 def script_load_molecule(filename: str, atomtypes):
     json_data = {}

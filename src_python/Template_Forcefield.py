@@ -9,8 +9,8 @@ import numpy as np
 import sys
 from abc import ABC, abstractmethod
 from typing import Tuple, List, Dict, Optional, Any, Union
-from .Template_Master import ClassyClass
-from .VarPrecision import dp
+from src_python.Template_Master import ClassyClass
+from src_python.VarPrecision import dp
 
 
 class ForceField(ClassyClass):

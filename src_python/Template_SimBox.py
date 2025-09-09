@@ -8,8 +8,8 @@ Base class for all simulation box types.
 import numpy as np
 from abc import ABC, abstractmethod
 from typing import List, Dict, Tuple, Any, Optional, Union
-from .Template_Master import ClassyClass
-from .VarPrecision import dp
+from src_python.Template_Master import ClassyClass
+from src_python.VarPrecision import dp
 
 class SimBox(ClassyClass):
     """

@@ -9,8 +9,8 @@ Useful for system exploration and testing purposes.
 import numpy as np
 import sys
 from typing import Optional
-from .VarPrecision import dp
-from .Template_AcceptRule import AcceptRule
+from src_python.VarPrecision import dp
+from src_python.Template_AcceptRule import AcceptRule
 
 class AcceptAll(AcceptRule):
     """

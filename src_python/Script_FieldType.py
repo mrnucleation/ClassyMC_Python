@@ -11,10 +11,10 @@ import sys
 from typing import Optional, Dict, Type, Any
 
 # Import all available force field implementations
-from .Template_Forcefield import ForceField
-from .FF_EasyPair_Cut import EasyPairCut
-from .FF_LJ_Cut import LJ_Cut
-from .FF_HardSphere import HardSphere
+from src_python.Template_Forcefield import ForceField
+from src_python.FF_EasyPair_Cut import EasyPairCut
+from src_python.FF_LJ_Cut import LJ_Cut
+from src_python.FF_HardSphere import HardSphere
 
 # Global force field instance
 CurrentForceField: Optional[ForceField] = None

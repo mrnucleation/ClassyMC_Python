@@ -9,8 +9,8 @@ import math
 import sys
 import numpy as np
 from typing import Optional
-from .VarPrecision import dp
-from .Template_AcceptRule import AcceptRule
+from src_python.VarPrecision import dp
+from src_python.Template_AcceptRule import AcceptRule
 
 def grnd():
     """Generate random number between 0 and 1"""
