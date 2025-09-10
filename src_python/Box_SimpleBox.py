@@ -923,7 +923,7 @@ class SimpleBox(SimBox):
         atom_mask = np.where(self.MolIndx == mol_global_index)
         coordinates = self.atoms[atom_mask]
         atomtypes = self.AtomType[atom_mask]
-        center_of_mass = self.centerMass[mol_global_index, :] if self.centerMass is not None else None
+        #center_of_mass = self.centerMass[mol_global_index, :] if self.centerMass is not None else None
         
         # Return comprehensive molecule information
         return {
@@ -934,7 +934,7 @@ class SimpleBox(SimBox):
             'atomindicies': atom_mask,
             'atom_types': atomtypes,
             'coordinates': coordinates,
-            'center_of_mass': center_of_mass
+            #'center_of_mass': center_of_mass
         }
     
     # -------------------------------------------------------------------------

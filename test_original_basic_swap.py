@@ -20,11 +20,15 @@ from src_python.Sampling_AcceptAll import AcceptAll
 def test_original_with_fixes():
     """Test the original BasicSwap with fixes applied"""
     print("=== Testing Original BasicSwap with Bug Fixes ===")
-    mock_lj_data = {
+    # Create proper molecular data structure
+    topo_info = {
         "atoms": [("Ar", "LJ")],
+        "bonds": [],
+        "angles": [],
+        "torsions": []
     }
     atomtypes = ["LJ"]
-    LJ_type = Molecule_Type(mock_lj_data, atomtypes=atomtypes)
+    LJ_type = Molecule_Type(topo_info, atomtypes=atomtypes)
 
     box = load_coords("SimpleLJ.clssy", [LJ_type])
 

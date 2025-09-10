@@ -213,7 +213,7 @@ class CubeBox(SimpleBox):
         for i in range(self.nDimension):
             reduced_coords[i] = (real_coords[i] + self.boxL2) / self.boxL
         return reduced_coords
-    
+
     def get_real_coords(self, reduced_coords):
         """
         Corresponds to Cube_GetRealCoords
