@@ -3,9 +3,9 @@ import time
 
 # Note: The following imports assume corresponding Python modules exist.
 
-from random import choice
+from random import choice, choices
 from typing import List, Optional
-
+import numpy as np
 
 
 # =============================================================================
@@ -16,6 +16,10 @@ class SimMonteCarlo:
         self.screenfreq = screenfreq
         self.configfreq = configfreq
         self.energyCheck = energyCheck
+        
+        self.avg_energy = 0.0
+        self.avg_sq_energy = 0.0
+        self.count_energy = 0
         
         # Initialize required attributes that were missing
         self.BoxList = []           # List of simulation boxes
@@ -28,6 +32,9 @@ class SimMonteCarlo:
         self.TimeStart = time.time()  # Simulation start time
         
         self.moveweights = []
+        print(f"nCycles: {nCycles}, nMoves: {nMoves}, screenfreq: {screenfreq}, configfreq: {configfreq}, energyCheck: {energyCheck}")
+        
+        self.avg_file = open('avg_energy.txt', 'w')
     
     # ---------------------------------------------------------------------------
     def run_monte_carlo(self):
@@ -69,36 +76,46 @@ class SimMonteCarlo:
         for iCycle in range(self.nCycles):
             for iMove in range(self.nMoves):
                 accept = True
-                if len(self.Moves) > 0:
-                    moveNum = choice(range(len(self.Moves)))
-                    curmove = self.Moves[moveNum]
+                
+                curmove = choices(self.Moves, self.moveweights, k=1)[0]
 
-                    # Perform selected move
-                    self.Moves[moveNum].get_box_prob(boxProb)
-                    box = choice(self.BoxList)
-                    accept = curmove.full_move(box, self.Sampling)
+                # Perform selected move
+                curmove.get_box_prob(boxProb)
+                box = choices(self.BoxList, boxProb)[0]
+                accept = curmove.full_move(box, self.Sampling)
 
-                    if accept:
-                        self.update(accept)
+                if accept:
+                    self.update(accept)
 
-                    # Per-move analysis and neighbor-list checks
-                    self.analyze(iCycle, iMove, accept, True)
-                    #if accept:
-                    #    for iBox in range(nBoxes):
-                    #        if boxNum < 0 or boxNum == iBox + 1:
-                    #            self.BoxList[iBox].CheckLists()
-
+                # Per-move analysis and neighbor-list checks
+                self.analyze(iCycle, iMove, accept, True)
+                #if accept:
+                #    for iBox in range(nBoxes):
+                #        if boxNum < 0 or boxNum == iBox + 1:
+                #            self.BoxList[iBox].CheckLists()
+                #self.avg_energy += box.ETotal
+                #self.count_energy += 1
+                #self.avg_sq_energy += box.ETotal**2
+                
+                #Export using ASE to a LAMMPS trajectory file
+            self.avg_file.write(f"{iCycle} {self.BoxList[0].ETotal:.6f}\n")
+            self.BoxList[0].to_ase_atoms().write('trajectory.xyz', format='xyz', append=True)
             # Periodic outputs and checks
             if iCycle % screenfreq == 0:
+                #print(f"     Average energy: {self.avg_energy / self.count_energy:.6f}")
+                #print(f"     Average squared energy: {self.avg_sq_energy / self.count_energy:.6f}")
+                #print(f"     Standard deviation: {np.sqrt(self.avg_sq_energy / self.count_energy - (self.avg_energy / self.count_energy)**2):.6f}")
                 self.screen_out(iCycle, iMove)
-            #if energyCheck > 0 and iCycle % energyCheck == 0:
-            #    for boxIdx in range(nBoxes):
-            #        self.BoxList[boxIdx].Energysafety_check()
+            if energyCheck > 0 and iCycle % energyCheck == 0:
+                for box in self.BoxList:
+                    box.energy_safety_check()
 
             # Per-cycle analysis and maintenance
             self.analyze(iCycle, iMove, accept, False)
             self.maintenance(iCycle, iMove)
             self.trajectory(iCycle, iMove)
+            
+        
 
         # End of main loop
         self.screen_out(iCycle, iMove)
@@ -113,6 +130,7 @@ class SimMonteCarlo:
         if self.AnalysisArray is not None:
             for analysis in self.AnalysisArray:
                 analysis.func.Finalize()
+        self.avg_file.close()
     # ---------------------------------------------------------------------------
     
     # ---------------------------------------------------------------------------

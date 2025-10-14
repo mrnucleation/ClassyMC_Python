@@ -1,6 +1,9 @@
 objects/*.o
 mods/*
 *.pyc
+*.txt
+*.xsf
+*.lammpstrj
 profiling/*
 **/Config_*.clssy
 **/classyMC
@@ -64,3 +67,4 @@ src_python/__pycache__/Sim_MonteCarlo.cpython-310.pyc
 src_python/__pycache__/Sim_MonteCarlo.cpython-310.pyc
 tests/__pycache__/test_metropolis_sampling.cpython-310-pytest-8.4.1.pyc
 tests/__pycache__/test_metropolis_simple.cpython-310-pytest-8.4.1.pyc
+src_python/__pycache__/Sim_MonteCarlo.cpython-310.pyc

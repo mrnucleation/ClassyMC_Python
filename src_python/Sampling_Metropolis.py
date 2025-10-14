@@ -49,13 +49,13 @@ class Metropolis(AcceptRule):
             print("Coding Error! Probability has not been passed into Sampling", file=sys.stderr)
             raise RuntimeError("No probability provided")
         
+
         bias_e = -trial_box.beta * e_diff + prob_term + extra_terms
         
         if bias_e >= 0.0:
             accept = True
         elif bias_e > math.log(np.random.random()):
             accept = True
-        
         return accept
     # ---------------------------------------------------------------------------
     def make_decision_2box(self, trial_box1, trial_box2, e_diff1, e_diff2, 

@@ -15,15 +15,17 @@ class MolTranslate(MCMove):
     module.
     """
     #----------------------------------------------------------------------------
-    def __init__(self, BoxArray):
+    def __init__(self, BoxArray, limit=5.0, targAccpt=50.0, max_dist=2.5):
         super().__init__()
         # --- Default attributes from Fortran type definition ---
         self.verbose = True
         self.proportional = True
         self.tuneMax = True
-        self.limit = 5.0
-        self.targAccpt = 50.0
-        self.max_dist = 0.05
+        self.limit = limit
+        self.targAccpt = targAccpt
+        self.max_dist = max_dist
+        
+        self.maintFreq = 50
 
         # --- Rejection Counters ---
         self.ovlaprej = 0
@@ -58,26 +60,32 @@ class MolTranslate(MCMove):
 
         # --- Propose move ---
         
-        candidates = trial_box.get_molindicies()
-        if len(candidates) == 0:
-            print("No molecules available for translation.")
-            return False
+        #candidates = trial_box.get_molindicies()
+        #if len(candidates) == 0:
+        #    print("No molecules available for translation.")
+        #    return False
 
         #print(f"Available molecules for translation: {candidates}")
-        targetMol = choice(candidates)
+        #targetMol = choice(candidates)
+        targetMol = trial_box.pick_random_molecule()
         #print(f"Selected molecule for translation: {targetMol}")
-        molProperties = trial_box.get_moldetails(targetMol)
         
-        oldpos = molProperties['atoms']
-        molType = molProperties['molType']
-        atomindices = molProperties['atmIndicies']
+        oldpos = targetMol['coordinates']
+        molType = targetMol['mol_type']
+        atomindices = targetMol['atomindicies']
+        mol_index = targetMol['mol_index']
         
+        #print(f"oldpos: {oldpos}")
+        #print(f"molType: {molType}")
+        #print(f"atomindices: {atomindices}")
 
-        dx = self.boxmax_dist[box_idx] * np.random.uniform(-1.0, 1.0, size=oldpos.shape)
+        #dx = self.boxmax_dist[box_idx] * np.random.uniform(-1.0, 1.0, size=oldpos.shape)
+        dx = self.max_dist * np.random.uniform(-1.0, 1.0, size=oldpos.shape)
+        #print(f"dx: {dx}")
         x_new = oldpos + dx
         disp = Displacement(
             molType=molType,
-            molIndx=targetMol,
+            molIndx=mol_index,
             atmIndicies=atomindices,
             newPositions=x_new
         )
@@ -101,10 +109,14 @@ class MolTranslate(MCMove):
             return False
         
         e_diff = e_inter + e_intra
-
         if not trial_box.check_post_energy(disp, e_diff):
             self.constrainrej += 1
             return False
+        
+        #print(f"e_diff: {e_diff}")
+        #print(f"beta: {trial_box.beta}")
+        #print(f"beta*e_diff: {trial_box.beta*e_diff}")
+        #print()
 
         # --- Accept/Reject ---
         accept = sampling.make_decision(trial_box, e_diff, disp, in_prob=1.0)
@@ -112,7 +124,7 @@ class MolTranslate(MCMove):
         if accept:
             self.accpt += 1.0
             self.boxaccpt[box_idx] += 1.0
-            trial_box.update_energy(e_diff)
+            trial_box.update_energy(e_diff, e_inter, e_intra)
             trial_box.update_position(disp)
         else:
             self.detailedrej += 1
@@ -130,13 +142,14 @@ class MolTranslate(MCMove):
             if self.boxatmps[i_box] < 0.5:
                 continue
             
-            acc_rate = 100.0 * self.boxaccpt[i_box] / self.boxatmps[i_box]
+            acc_rate = 100.0 * self.accpt / self.atmps
+            #print(f"Acceptance rate: {acc_rate:15.8f}")
 
-            if acc_rate > self.boxtargAccpt[i_box]:
-                new_dist = self.boxmax_dist[i_box] * 1.01
-                self.boxmax_dist[i_box] = min(new_dist, self.boxlimit[i_box])
+            if acc_rate > self.targAccpt:
+                new_dist = self.max_dist * 1.01
+                self.max_dist = min(new_dist, self.limit)
             else:
-                self.boxmax_dist[i_box] *= 0.99
+                self.max_dist *= 0.99
     #----------------------------------------------------------------------------
     def prologue(self):
         """Prints information at the start of a simulation block."""
@@ -152,7 +165,8 @@ class MolTranslate(MCMove):
         print(f"Molecule Translation Acceptance Rate: {accpt_rate:15.8f}")
         
         if self.tuneMax:
-            dist_str = " ".join([f"{d:15.8f}" for d in self.boxmax_dist])
+            #dist_str = " ".join([f"{d:15.8f}" for d in self.boxmax_dist])
+            dist_str = f"{self.max_dist:15.8f}"
             print(f"Final Maximum Displacement: {dist_str}")
 
         if self.verbose:

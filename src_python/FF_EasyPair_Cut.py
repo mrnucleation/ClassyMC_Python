@@ -247,19 +247,22 @@ class EasyPairCut(ForceField):
         Returns:
             tuple: (energy_change, accept_flag)
         """
-        assert isinstance(disp, Displacement), "shift_calc_single_numpy expects a Displacement displacement"
+        assert isinstance(disp, Displacement), "shift_calc_single_numpy expects a Displacement object"
         
         E_Diff = 0.0
         accept = True
         
-        # Get atom positions
+        # Get atom positions (will be replaced with neighbor list implementation later)
         atoms = curbox.get_coordinates()
         molIndx = curbox.MolIndx
         #I will update this later when the neighbor list is implemented
         mask = np.where(molIndx != disp.molIndx)
         cut_list = atoms[mask]
-        jAtomTypes = curbox.AtomType[mask]       
+        iAtomtypes = curbox.AtomType[disp.atmIndicies]
+        jAtomTypes = curbox.AtomType[mask]
         atoms_new = disp.X
+        n_displaced_atoms = len(atoms_new)
+        n_other_atoms = len(cut_list)
         
         #Compute the squared distances of the new positions
         rx = cut_list[None, :, :] - atoms_new[:, None, :]
@@ -267,20 +270,28 @@ class EasyPairCut(ForceField):
         rx = curbox.boundary(rx)
         rsq = np.sum(rx**2, axis=1).reshape(-1)
         
-        # Check if any pairs are within the cutoff
+        # Tile atom types to match pair structure
+        # For each displaced atom, we have n_other_atoms pairs
+        # So iAtomTypes: [type_0, type_0, ..., type_1, type_1, ...]
+        # And jAtomTypes: [all j types, all j types, ...]
+        iAtomTypes_tiled = np.repeat(iAtomtypes, n_other_atoms)
+        jAtomTypes_tiled = np.tile(jAtomTypes, n_displaced_atoms)
+        
+        # Check if any pairs are within the minimum distance (before filtering by cutoff)
         if self.rMinTable is not None:
-            rmin_ij = self.rMinTable[curbox.AtomType[disp.atmIndicies], jAtomTypes]
-            rmin_ij = rmin_ij.reshape(-1)
+            rmin_ij = self.rMinTable[iAtomTypes_tiled, jAtomTypes_tiled]
             accept = np.all(rsq >= rmin_ij)
             if not accept:
                 return 0.0, False
-
         
+        # Filter by cutoff distance
         within_cutoff = rsq < self.rCutSq
-        rsq = rsq[within_cutoff]
-        jAtomTypes_new = jAtomTypes[within_cutoff]
+        rsq_new = rsq[within_cutoff]
+        iAtomTypes_new = iAtomTypes_tiled[within_cutoff]
+        jAtomTypes_new = jAtomTypes_tiled[within_cutoff]
 
-        E_pair = self.pair_function(rsq, curbox.AtomType[disp.atmIndicies], jAtomTypes_new)
+        # Calculate new pair energies
+        E_pair = self.pair_function(rsq_new, iAtomTypes_new, jAtomTypes_new)
         E_Diff += np.sum(E_pair)
         
         #Compute the squared distances of the old positions
@@ -289,10 +300,14 @@ class EasyPairCut(ForceField):
         rx_old = curbox.boundary(rx_old)
         rsq_old = np.sum(rx_old**2, axis=1).reshape(-1)
         
+        # Filter old distances by cutoff and get corresponding atom types
         within_cutoff_old = rsq_old < self.rCutSq
         rsq_old = rsq_old[within_cutoff_old]
-        jAtomTypes_old = jAtomTypes[within_cutoff_old]
-        E_pair_old = self.pair_function(rsq_old, curbox.AtomType[disp.atmIndicies], jAtomTypes_old)
+        iAtomTypes_old = iAtomTypes_tiled[within_cutoff_old]
+        jAtomTypes_old = jAtomTypes_tiled[within_cutoff_old]
+        
+        # Calculate old pair energies
+        E_pair_old = self.pair_function(rsq_old, iAtomTypes_old, jAtomTypes_old)
         E_Diff -= np.sum(E_pair_old)
         return E_Diff, accept
    

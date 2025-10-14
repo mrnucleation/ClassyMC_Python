@@ -578,12 +578,14 @@ class SimpleBox(SimBox):
     
     
     # -------------------------------------------------------------------------
-    def update_energy(self, E_Diff):
+    def update_energy(self, E_Diff, E_Inter=0.0, E_Intra=0.0):
         """
         Corresponds to SimpleBox_UpdateEnergy
         Update the total energy
         """
         self.ETotal += E_Diff
+        self.E_Inter += E_Inter
+        self.E_Intra += E_Intra
     
     # -------------------------------------------------------------------------
     def update_neigh_lists(self, disp):
@@ -653,14 +655,40 @@ class SimpleBox(SimBox):
     
     # -------------------------------------------------------------------------
     def safety_check(self):
-        """
-        Corresponds to SimpleBox_EnergySafetyCheck
-        Perform energy safety checks
-        """
         if self.forceERecompute:
             print("Forcing energy recomputation...")
             self.compute_energy()
             self.forceERecompute = False
+    
+    #--------------------------------------------------------------------------
+    def energy_safety_check(self):
+        """
+        Corresponds to SimpleBox_EnergySafetyCheck
+        Perform energy safety checks
+        """
+        E_Current = self.ETotal*1.0
+        E_InterCur = self.E_Inter*1.0
+        E_IntraCur = self.E_Intra*1.0
+        accept = self.compute_energy()
+        if not accept:
+            print("Energy safety check failed!")
+            raise ValueError("Energy safety check failed!")
+        print(E_Current, self.ETotal)
+        
+        try:
+            if abs((E_Current-self.ETotal)/self.ETotal) > 1e-7:
+                print("Energy safety check failed!")
+                raise ValueError("Energy safety check failed!")
+            else:
+                print("Energy safety check passed!")
+        except:
+            if abs(E_Current-self.ETotal) > 1e-7:
+                print("Energy safety check failed!")
+                raise ValueError("Energy safety check failed!")
+            else:
+                print("Energy safety check passed!")
+
+
     
     # -------------------------------------------------------------------------
     def process_io(self, line):
@@ -879,7 +907,7 @@ class SimpleBox(SimBox):
             'type_object': self.MolData[type_index]
         }
     # -------------------------------------------------------------------------
-    def pick_random_molecule(self):
+    def pick_random_molecule(self, force_mol_idx=None):
         """
         Randomly pick one molecule from the simulation box.
         
@@ -892,8 +920,6 @@ class SimpleBox(SimBox):
                 - 'mol_index': Global molecule index (0-based)
                 - 'mol_type': Molecule type index
                 - 'mol_sub_index': Molecule sub-index within its type
-                - 'atom_start': Starting atom index
-                - 'atom_end': Ending atom index
                 - 'n_atoms': Number of atoms in molecule
                 - 'coordinates': Array of atom coordinates
                 - 'center_of_mass': Center of mass coordinates
@@ -905,7 +931,11 @@ class SimpleBox(SimBox):
             raise ValueError("Cannot pick random molecule: box is empty")
         
         # Generate random molecule index (0 to nMolTotal-1)
-        mol_global_index = random.randint(0, self.nMolTotal - 1)
+        if force_mol_idx is not None:
+            mol_global_index = force_mol_idx
+        else:
+            mol_global_index = random.randint(0, self.nMolTotal - 1)
+        
         
         # Get molecule data using existing get_mol_data method
         mol_data = self.get_mol_data(mol_global_index)
@@ -951,18 +981,9 @@ class SimpleBox(SimBox):
         print(f"  Intermolecular Energy: {self.E_Inter:.6f}")
         print(f"  Intramolecular Energy: {self.E_Intra:.6f}")
         print(f"  Enthalpy: {self.HTotal:.6f}")
-        if isinstance(self.volume, (list, tuple, np.ndarray)):
-            print(f"  Volume: {np.prod(self.volume):.6f}")
-        else:
-            print(f"  Volume: {self.volume:.6f}")
-        if isinstance(self.pressure, (list, tuple, np.ndarray)):
-            print(f"  Pressure: {self.pressure[0]:.6f}")
-        else:
-            print(f"  Pressure: {self.pressure:.6f}")
-        if hasattr(self, 'temperature') and self.temperature > 0:
-            print(f"  Temperature: {self.temperature:.6f}")
-        if hasattr(self, 'beta') and self.beta > 0:
-            print(f"  Beta: {self.beta:.6f}")
+        print(f"  Volume: {self.volume:.6f}")
+        print(f"  Pressure: {self.pressure:.6f}")
+        print(f"  Temperature: {self.temperature:.6f}")
         print(f"  Dimensions: {self.nDimensions}D")
         if hasattr(self, 'boxL') and self.boxL is not None:
             print(f"  Box Length: {self.boxL}")
@@ -986,20 +1007,50 @@ class SimpleBox(SimBox):
         except ImportError:
             raise ImportError("ASE is not installed. Please install ASE to use this feature.")
         
-        if isinstance(self, SimpleBox):
+        # Check if this is a box with periodic boundary conditions
+        if hasattr(self, 'boxL') and self.boxL is not None:
+            # Handle both scalar and array cases for boxL
+            if np.isscalar(self.boxL):
+                boxL_val = self.boxL
+            else:
+                boxL_val = self.boxL[0] if len(self.boxL) > 0 else 0.0
+
+            if boxL_val > 0:
+                # For boxes with defined dimensions (like CubeBox), use periodic boundary conditions
+                if self.nDimensions == 3:
+                    cell = np.diag([boxL_val, boxL_val, boxL_val])
+                else:
+                    # For other dimensions, create appropriate cell matrix
+                    cell_matrix = np.zeros((3, 3))
+                    for i in range(min(self.nDimensions, 3)):
+                        if np.isscalar(self.boxL):
+                            cell_matrix[i, i] = self.boxL
+                        else:
+                            cell_matrix[i, i] = self.boxL[i]
+                    cell = cell_matrix
+                pbc = True
+            else:
+                # For SimpleBox without boundaries, use no cell and no PBC
+                cell = None
+                pbc = False
+        else:
+            # For SimpleBox without boundaries, use no cell and no PBC
             cell = None
             pbc = False
-        else:
-            cell = self.cell if hasattr(self, 'cell') else None
-            pbc = True
             
+        # Shift the atoms to match the axis being 0
             
         ase_atoms = Atoms(
-            symbols=[self.MolData[self.MolType[i]].atomtypes[self.AtomSubIndx[i]] for i in range(self.nMaxAtoms)],
+            #symbols=[self.MolData[self.MolType[i]].atomtypes[0] for i in range(self.nMaxAtoms)],
+            symbols=['Ar']*self.nAtoms,
             positions=self.atoms,
             cell=cell,  # No periodic boundary conditions by default
             pbc=pbc  # No periodic boundary conditions
         )
+        
+        #Apply periodic boundary conditions
+        ase_atoms.wrap()
+        
         #print(ase_atoms)
         
         

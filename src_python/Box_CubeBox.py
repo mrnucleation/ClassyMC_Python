@@ -33,7 +33,26 @@ class CubeBox(SimpleBox):
         self.boxL2 = 0.0     # Half box length (for efficiency)
         self.boxStr = "Cube"
         
-        
+    #--------------------------------------------------------------------------------------------------
+    @property
+    def set_boxL(self, boxL):
+        """
+        Corresponds to Cube_SetBoxL
+        Set the box length for the cubic box
+        """
+        self.boxL = boxL
+        self.boxL2 = boxL / 2.0
+        self.volume = np.prod(self.boxL)
+    #--------------------------------------------------------------------------------------------------
+    @property
+    def get_boxL(self):
+        """
+        Corresponds to Cube_GetBoxL
+        Get the box length for the cubic box
+        """
+        return self.boxL
+    #--------------------------------------------------------------------------------------------------
+
         
     #--------------------------------------------------------------------------------------------------   
     def load_dimension(self, boxlengths: list[float]) -> bool:
@@ -44,7 +63,7 @@ class CubeBox(SimpleBox):
         try:
             self.boxL = np.full(self.nDimensions, boxlengths[0], dtype=dp)
             self.boxL2 = self.boxL / 2.0
-            self.volume = self.boxL ** (self.nDimensions)
+            self.volume = np.prod(self.boxL)
             return True
         except (ValueError, IndexError):
             return False
@@ -62,15 +81,15 @@ class CubeBox(SimpleBox):
         """
         Corresponds to Cube_Boundary
         Apply periodic boundary conditions for cubic box
-        
+
         Args:
-            rx, ry, rz: Coordinates to apply PBC to
-            
+            rx: Displacement vectors to apply PBC to
+
         Returns:
-            Modified coordinates (rx, ry, rz) or just rx if others are None
+            Modified displacement vectors with minimum image convention
         """
-        rx = np.where(rx > self.boxL2, rx - self.boxL, rx)
-        rx = np.where(rx < -self.boxL2, rx + self.boxL, rx)
+        # Apply minimum image convention: map to [-L/2, L/2]
+        rx = rx - self.boxL * np.round(rx / self.boxL)
         return rx
         
     #--------------------------------------------------------------------------------------------------
@@ -80,19 +99,18 @@ class CubeBox(SimpleBox):
         Corresponds to Cube_BoundaryNew
         Apply boundary conditions with scaling from volume changes
         """
-        
+
         #Check if all scales are the same
         if not np.all(disp.scales == disp.scales[0]):
             print("Warning! CubeBox boundary_new: scales are not all the same", file=sys.stderr)
             print("Cubic box only supports isotropic scaling", file=sys.stderr)
             raise RuntimeError("scales are not all the same")
-        
+
         scale_factor = disp.scales[0]
-        
-        # Extract scale factor from displacement
-        
-        rx = np.where(rx > self.boxL2*scale_factor, rx - self.boxL*scale_factor, rx)
-        rx = np.where(rx < -self.boxL2*scale_factor, rx + self.boxL*scale_factor, rx)
+
+        # Apply minimum image convention with scaled box
+        scaled_boxL = self.boxL * scale_factor
+        rx = rx - scaled_boxL * np.round(rx / scaled_boxL)
         return rx
     #--------------------------------------------------------------------------------------------------
     def process_io(self, line):
@@ -153,19 +171,7 @@ class CubeBox(SimpleBox):
         Corresponds to Cube_Prologue
         Initialize and validate the cubic box setup
         """
-        # Check if particles are within bounds
-        for iAtom in range(self.nMaxAtoms):
-            if not self.is_active(iAtom):
-                continue
-                
-            for iDim in range(self.nDimension):
-                if abs(self.atoms[iAtom, iDim]) > self.boxL2:
-                    print(f"Warning! Particle out of bounds!", file=sys.stderr)
-                    print(f"Particle Number: {iAtom}", file=sys.stderr)
-                    print(f"Box Length: {self.boxL}", file=sys.stderr)
-                    print(f"Position: {self.atoms[iAtom, :]}", file=sys.stderr)
-                    raise RuntimeError("Particle out of bounds")
-        
+       
         # Check initial constraints
         if self.Constrain is not None:
             for constraint in self.Constrain:
@@ -181,8 +187,6 @@ class CubeBox(SimpleBox):
         else:
             self.nMolTotal = 0
         
-        # Set volume
-        self.volume = self.boxL ** 3
         
         # Build neighbor lists
         if self.NeighList is not None:
@@ -198,11 +202,11 @@ class CubeBox(SimpleBox):
         print(f"Box {self.boxID} Number Density: {self.nMolTotal/self.volume}")
         
         # Compute center of mass for molecules
-        for iMol in range(self.maxMol):
-            mol_data = self.get_mol_data(iMol)
-            mol_start = mol_data['molStart']
-            if self.MolSubIndx[mol_start] <= self.NMol[self.MolType[mol_start]]:
-                self.compute_cm(iMol)
+        #for iMol in range(self.maxMol):
+        #    mol_data = self.get_mol_data(iMol)
+        #    mol_start = mol_data['molStart']
+        #    if self.MolSubIndx[mol_start] <= self.NMol[self.MolType[mol_start]]:
+        #        self.compute_cm(iMol)
     
     def get_reduced_coords(self, real_coords):
         """
@@ -229,13 +233,46 @@ class CubeBox(SimpleBox):
         Corresponds to Cube_UpdateVolume
         Update box dimensions after volume change
         """
-        
+
         assert isinstance(vol_disp, OrthoVolChange), "CubeBox update_volume: disp must be an OrthoVolChange"
-        
+
         if isinstance(vol_disp, OrthoVolChange):
             vol_ratio = vol_disp.volNew / vol_disp.volOld
             self.volume = vol_disp.volNew
             self.boxL = self.boxL * (vol_ratio ** (1.0/3.0))
             self.boxL2 = self.boxL / 2.0
+    #--------------------------------------------------------------------------------------------------
+
+    @property
+    def cell(self):
+        """
+        Return the ASE cell matrix for the cubic box.
+        For ASE, the cell matrix should be a 3x3 matrix where the diagonal elements
+        are the box lengths and off-diagonal elements are the tilt factors.
+        For a cubic box, we use an orthogonal cell matrix.
+        """
+        if self.boxL is not None:
+            # Handle both scalar and array cases for boxL
+            if np.isscalar(self.boxL):
+                boxL_val = self.boxL
+            else:
+                boxL_val = self.boxL[0] if len(self.boxL) > 0 else 0.0
+
+            if boxL_val > 0:
+                if self.nDimensions == 3:
+                    return np.diag([boxL_val, boxL_val, boxL_val])
+                else:
+                    # For other dimensions, create appropriate cell matrix
+                    cell_matrix = np.zeros((3, 3))
+                    for i in range(min(self.nDimensions, 3)):
+                        if np.isscalar(self.boxL):
+                            cell_matrix[i, i] = self.boxL
+                        else:
+                            cell_matrix[i, i] = self.boxL[i]
+                    return cell_matrix
+            else:
+                return None
+        else:
+            return None
     #--------------------------------------------------------------------------------------------------
 #==================================================================================================
