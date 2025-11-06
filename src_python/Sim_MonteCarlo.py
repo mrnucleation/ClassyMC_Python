@@ -99,7 +99,8 @@ class SimMonteCarlo:
                 
                 #Export using ASE to a LAMMPS trajectory file
             self.avg_file.write(f"{iCycle} {self.BoxList[0].ETotal:.6f}\n")
-            self.BoxList[0].to_ase_atoms().write('trajectory.xyz', format='xyz', append=True)
+            #self.BoxList[0].to_ase_atoms().write('trajectory.xyz', format='xyz', append=True)
+            self.BoxList[0].to_ase_atoms().write('trajectory.gro', format='gromacs', append=True)
             # Periodic outputs and checks
             if iCycle % screenfreq == 0:
                 #print(f"     Average energy: {self.avg_energy / self.count_energy:.6f}")

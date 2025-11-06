@@ -119,8 +119,9 @@ def create_fcc_with_vacancies():
     
     # FCC lattice parameters
     lattice_constant = sqrt(8)*2**(1/6)/2.0  # Distance between nearest neighbors (in LJ sigma units)
-    n_cells = 2  # Number of unit cells in each direction (2x2x2 = 32 atoms - 2 vacancies = 30 atoms)
+    n_cells = 3  # Number of unit cells in each direction (2x2x2 = 32 atoms - 2 vacancies = 30 atoms)
     
+    nvacancies = 5    
     # Define molecule topology (single LJ atom per molecule)
     mock_lj_data = {
         "atoms": [("Ar", "LJ")],  # Single LJ atom type
@@ -131,7 +132,7 @@ def create_fcc_with_vacancies():
     # Calculate number of atoms in FCC lattice
     # FCC has 4 atoms per unit cell
     natoms_full = 4 * (n_cells ** 3)
-    natoms_with_vacancies = natoms_full - 2  # Remove 2 atoms
+    natoms_with_vacancies = natoms_full - nvacancies  # Remove 2 atoms
     
     # Set up box
     NMol = [natoms_with_vacancies]
@@ -187,6 +188,7 @@ def create_fcc_with_vacancies():
                     positions.append(cell_origin + basis_pos)
     
     positions = np.array(positions)
+
     
     # Center the lattice in the box (shift from corner to center)
     positions -= box_length / 2.0
@@ -197,14 +199,14 @@ def create_fcc_with_vacancies():
     distances = np.linalg.norm(positions - center, axis=1)
     
     # Remove the two atoms closest to the center
-    vacancy_indices = np.argsort(distances)[:2]
+    vacancy_indices = np.argsort(distances)[:nvacancies]
     mask = np.ones(len(positions), dtype=bool)
     mask[vacancy_indices] = False
     positions = positions[mask]
     
     print(f"Created FCC lattice: {n_cells}x{n_cells}x{n_cells} unit cells")
     print(f"Total atoms in full lattice: {natoms_full}")
-    print(f"Atoms after removing 2 vacancies: {natoms_with_vacancies}")
+    print(f"Atoms after removing {nvacancies} vacancies: {natoms_with_vacancies}")
     print(f"Vacancy positions (removed):")
     for idx in vacancy_indices:
         print(f"  Vacancy {idx}: {positions[idx] if idx < len(positions) else 'removed'}")
@@ -298,7 +300,7 @@ def setup_nntranslate_move(box):
     
     # Create and set a simple neural network
     # (In practice, this would be a trained model)
-    nn_move.create_and_set_neural_network("model.pt")
+    nn_move.create_and_set_neural_network("model_01.pt")
     
     print(f"NNTranslate parameters:")
     print(f"  Neighbor cutoff: {nn_move.neighbor_cutoff:.3f}")
@@ -322,7 +324,7 @@ def compute_initial_energy(box):
     
     return box.ETotal
 
-def run_simulation(box, nn_move, n_cycles=50000, moves_per_cycle=30):
+def run_simulation(box, nn_move, n_cycles=100000, moves_per_cycle=104):
     """
     Run the Monte Carlo simulation with statistics tracking.
     """
@@ -348,9 +350,12 @@ def run_simulation(box, nn_move, n_cycles=50000, moves_per_cycle=30):
     mc.Moves = [uniform_move]
     mc.moveweights = [25.0]
     
+    #mc.Moves = []
+    #mc.moveweights = []
+    
     #Add NNTranslate move
-    mc.Moves.append(nn_move)
-    mc.moveweights.append(1.0)
+    #mc.Moves.append(nn_move)
+    #mc.moveweights.append(1.0)
     
     mc.Sampling = sampling
     

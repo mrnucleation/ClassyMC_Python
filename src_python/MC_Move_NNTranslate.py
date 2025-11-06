@@ -10,6 +10,13 @@ import torch
 import torch.nn as nn
 import time
 import matplotlib.pyplot as plt
+import logging
+
+
+#Log to a file
+logging.basicConfig(level=logging.INFO, filename='NNTranslate.log')
+logger = logging.getLogger(__name__)
+
 
 def time_function(func):
     def wrapper(*args, **kwargs):
@@ -68,73 +75,24 @@ class SimpleFeedforwardNet2Feature(nn.Module):
 import torch
 import torch.nn as nn
 
-#=======================================================================
-class SimpleFeedforwardNetFeature(nn.Module):
-    def __init__(self):
-        super(SimpleFeedforwardNet2Feature, self).__init__()
-        self.fc1 = nn.Linear(3, 30)
-        self.act1 = nn.LeakyReLU(0.02)
-        self.act2 = nn.LeakyReLU(0.02)
-        self.fc2 = nn.Linear(30, 20)
-        self.fc3 = nn.Linear(20, 10)
-        self.fc4 = nn.Linear(10, 1)
 
-    def __call__(self, x, bin_volume=0.0):
-        return self.forward(x, bin_volume)
-
-    def forward(self, x, bin_volume=0.0):
-        # Input shape: (batch_size, 3, D1, D2, D3)
-        in_shape = x.shape
-        
-        # Permute to (batch_size, D1, D2, D3, 3)
-        x = x.permute(0, 2, 3, 4, 1)
-        
-        # Reshape to (batch_size*D1*D2*D3, 3) for processing
-        xn = x.reshape(-1, x.shape[-1])
-        
-        # Step 1: Identify non-zero elements (where not all 3 features are zero)
-        non_zero_mask = torch.sum(torch.abs(xn), dim=-1) != 0
-        non_zero_indices = torch.nonzero(non_zero_mask, as_tuple=False).squeeze(-1)
-        
-        # Step 2: Extract non-zero feature vectors
-        non_zero_values = xn[non_zero_indices]  # Shape: [num_non_zeros, 3]
-        
-        # Step 3: Process non-zero values through the network
-        if non_zero_values.numel() > 0:  # Only process if there are non-zero values
-            x1 = self.fc1(non_zero_values)
-            x1 = self.act1(x1)
-            x2 = self.fc2(x1)
-            x2 = self.act1(x2)
-            x3 = self.fc3(x2)
-            x3 = self.act2(x3)
-            out_non_zero = self.fc4(x3)
-            out_non_zero = self.act2(out_non_zero)  # Shape: [num_non_zeros, 1]
-        else:
-            out_non_zero = torch.tensor([], device=x.device).view(-1, 1)
-        
-        # Step 4: Create output tensor and map processed values
-        out = torch.full((xn.shape[0], 1), float(bin_volume), device=x.device, dtype=x.dtype)
-        if non_zero_values.numel() > 0:
-            out[non_zero_indices] = out_non_zero
-        
-        # Reshape back to (batch_size, D1, D2, D3)
-        out = out.view(in_shape[0], in_shape[2], in_shape[3], in_shape[4])
-        
-        # Step 5: Normalize the output log probability
-        out = out - torch.logsumexp(out, dim=(1, 2, 3), keepdim=True)
-        
-        return out
-    
 #=======================================================================
 class SimpleFeedforwardNet2Feature(nn.Module):
     def __init__(self):
         super(SimpleFeedforwardNet2Feature, self).__init__()
-        self.fc1 = nn.Linear(2, 35)
+        #self.fc1 = nn.Linear(2, 35)
+        #self.act1 = nn.LeakyReLU(0.02)
+        #self.act2 = nn.LeakyReLU(0.02)
+        #self.fc2 = nn.Linear(35, 23)
+        #self.fc3 = nn.Linear(23, 12)
+        #self.fc4 = nn.Linear(12, 1)
+        
+        self.fc1 = nn.Linear(2, 15)
         self.act1 = nn.LeakyReLU(0.02)
-        self.act2 = nn.LeakyReLU(0.02)
-        self.fc2 = nn.Linear(35, 23)
-        self.fc3 = nn.Linear(23, 12)
-        self.fc4 = nn.Linear(12, 1)
+        self.act2 = nn.LeakyReLU(0.03)
+        self.fc2 = nn.Linear(15, 8)
+        self.fc3 = nn.Linear(8, 6)
+        self.fc4 = nn.Linear(6, 1)
 
     def forward(self, x):
         # Input shape is expected to be (batch_size, 2, D1, D2, D3)
@@ -193,18 +151,22 @@ class NNTranslate(MCMove):
 
         # --- Neural Network Parameters ---
         # Simulation box definition: 5x5x5 Angstroms
-        self.nbins = [14, 14, 14]  # 50x50x50 bins
+        self.nbins = [201, 201, 201]  # 50x50x50 bins
         self.nbins = torch.tensor(self.nbins, device=self.device)
-        #Assert the bins are even
-        assert self.nbins[0] % 2 == 0, "Number of bins must be even"
-        assert self.nbins[1] % 2 == 0, "Number of bins must be even"
-        assert self.nbins[2] % 2 == 0, "Number of bins must be even"
         
-        self.binsize = [0.2, 0.2, 0.2]
+        #Assert the bins are odd
+        assert self.nbins[0] % 2 == 1, "Number of bins must be odd"
+        assert self.nbins[1] % 2 == 1, "Number of bins must be odd"
+        assert self.nbins[2] % 2 == 1, "Number of bins must be odd"
+        
+        self.middle_bin_index = torch.tensor([self.nbins[0] // 2, self.nbins[1] // 2, self.nbins[2] // 2], device=self.device)
+        self.binsize = [0.02, 0.02, 0.02]
         self.binsize_half = [self.binsize[0]/2, self.binsize[1]/2, self.binsize[2]/2]
         self.binsize = torch.tensor(self.binsize, device=self.device)
         self.binsize_half = torch.tensor(self.binsize_half, device=self.device)
-        
+ 
+ 
+        self.largest_displacement = 0.0       # Largest displacement created by the move
 
         #compute the translation box
         self.translation_box = torch.tensor([
@@ -232,10 +194,11 @@ class NNTranslate(MCMove):
         
         self.middle_bin_index = torch.tensor([self.nbins[0] // 2, self.nbins[1] // 2, self.nbins[2] // 2], device=self.device)
 
-        self.neighbor_cutoff = 3.0   # Cutoff for neighbor detection
+        self.neighbor_cutoff = 4.5   # Cutoff for neighbor detection
         self.gaussian_sigma = 1.0    # Sigma for gaussian fields (both channels use same sigma)
-        self.gaussian_sigma2 = 0.25   # Sigma for second gaussian field
-        self.gaussian_sigma3 = 0.25   # Sigma for third gaussian field
+        self.gaussian_sigma2 = 0.15   # Sigma for second gaussian field
+        self.gaussian_sigma3 = 0.32   # Sigma for third gaussian field
+
         self.cutoff_rc = 2.5         # Cutoff radius for Behler-Parrinello function
         self.cutoff_d = 0.1          # Cutoff transition width
         self.nn_model = None         # Neural network model (to be set externally)
@@ -272,14 +235,20 @@ class NNTranslate(MCMove):
     #@time_function
     def _initialize_bin_centers(self):
         """Initialize the bin centers for the simulation box."""
-        # Create bin centers using numpy first for easier computation
-        bin_centers_np = np.zeros((self.nbins[0], self.nbins[1], self.nbins[2], 3))
-        for i in range(self.nbins[0]):
-            for j in range(self.nbins[1]):
-                for k in range(self.nbins[2]):
-                    bin_centers_np[i,j,k, 0] = self.translation_box[0][0] + self.binsize[0]*(i+0.5)
-                    bin_centers_np[i,j,k, 1] = self.translation_box[1][0] + self.binsize[1]*(j+0.5)
-                    bin_centers_np[i,j,k, 2] = self.translation_box[2][0] + self.binsize[2]*(k+0.5)
+        # Vectorized version: create grid indices using meshgrid
+        i_indices = np.arange(self.nbins[0].cpu().numpy())
+        j_indices = np.arange(self.nbins[1].cpu().numpy())
+        k_indices = np.arange(self.nbins[2].cpu().numpy())
+        
+        # Create 3D grids of indices
+        i_grid, j_grid, k_grid = np.meshgrid(i_indices, j_indices, k_indices, indexing='ij')
+        
+        # Compute all bin centers at once using broadcasting
+        bin_centers_np = np.stack([
+            self.translation_box[0][0].cpu().numpy() + self.binsize[0].cpu().numpy() * (i_grid + 0.5),
+            self.translation_box[1][0].cpu().numpy() + self.binsize[1].cpu().numpy() * (j_grid + 0.5),
+            self.translation_box[2][0].cpu().numpy() + self.binsize[2].cpu().numpy() * (k_grid + 0.5)
+        ], axis=-1)
 
         # Convert to PyTorch tensor and move to device
         self.bin_centers = torch.tensor(bin_centers_np, dtype=torch.float32, device=self.device)
@@ -397,14 +366,15 @@ class NNTranslate(MCMove):
             self.log_probs = self.nn_model(features_tensor).squeeze(0)  # Remove batch dimension
             self.log_probs = self.log_probs.cpu().numpy()
             
+        
         # --- Sample bin using Gumbel's method ---
         selected_bin_idx, forward_prob = self._gumbel_sample(self.log_probs)
-        forward_prob = forward_prob - np.log(self.bin_volume)
+        #forward_prob = forward_prob - np.log(self.bin_volume)
 
         # --- Generate position within selected bin ---
-        delta = self._generate_position_in_bin(selected_bin_idx)
-        new_pos = target_pos + delta
-        new_pos = trial_box.boundary(new_pos)
+        delta, bin_delta = self._generate_position_in_bin(selected_bin_idx)
+        new_pos_raw = target_pos + delta
+        new_pos = trial_box.boundary(new_pos_raw)
 
 
         # Create displacement object
@@ -437,7 +407,7 @@ class NNTranslate(MCMove):
             return False
 
         # --- Calculate forward and reverse probabilities for bias ---
-        reverse_prob = self._calculate_reverse_probability(trial_box, new_pos, target_pos, target_mol_idx)
+        reverse_prob = self._calculate_reverse_probability(trial_box, new_pos_raw, target_pos, bin_delta, target_mol_idx)
         
        
         # Include bias in the acceptance probability
@@ -450,9 +420,31 @@ class NNTranslate(MCMove):
             self.boxaccpt[box_idx] += 1.0
             trial_box.update_energy(e_diff, e_inter, e_intra)
             trial_box.update_position(disp)
+            
+            self.largest_displacement = max(self.largest_displacement, np.linalg.norm(delta))
         else:
             self.detailedrej += 1
-
+            features_np = features.cpu().numpy()
+            '''
+            logger.info(f"Number of neighboring atoms: {len(neighbor_positions)}")
+            logger.info(f"Selected bin index: {selected_bin_idx}")
+            logger.info(f"Gaussian Features shape: {features_np.shape}")
+            logger.info(f"Gaussian Features min: {np.min(features_np)}")
+            logger.info(f"Gaussian Features max: {np.max(features_np)}")
+            logger.info(f"Gaussian Features mean: {np.mean(features_np)}")
+            logger.info(f"Gaussian Features std: {np.std(features_np)}")           
+            logger.info(f"Log probabilities shape: {self.log_probs.shape}")
+            logger.info(f"Log probabilities type: {self.log_probs.dtype}")
+            logger.info(f"Log probabilities min: {np.min(self.log_probs)}")
+            logger.info(f"Log probabilities max: {np.max(self.log_probs)}")
+            logger.info(f"Log probabilities mean: {np.mean(self.log_probs)}")
+            logger.info(f"Log probabilities std: {np.std(self.log_probs)}")           
+            logger.info(f"Forward probability: {forward_prob:8.5f}")
+            logger.info(f"Reverse probability: {reverse_prob:8.5f}")
+            logger.info(f"Bias correction: {bias_correction:8.5f}")
+            logger.info(f"e_diff: {e_diff:8.5f}")
+            logger.info(f"Accepted: {accept}")
+            '''
         return accept
 
     #----------------------------------------------------------------------------
@@ -472,13 +464,9 @@ class NNTranslate(MCMove):
         # Convert to torch tensor once (no redundant .to(device) call)
         displacements = torch.tensor(displacements, dtype=torch.float32, device=self.device)
         
-        # Check if the displacements are within the translation box
-        mask = ((displacements[:, 0] > self.translation_box[0][0]) &
-                (displacements[:, 0] < self.translation_box[0][1]) &
-                (displacements[:, 1] > self.translation_box[1][0]) &
-                (displacements[:, 1] < self.translation_box[1][1]) &
-                (displacements[:, 2] > self.translation_box[2][0]) &
-                (displacements[:, 2] < self.translation_box[2][1]))
+        # Calculate distances and filter by neighbor_cutoff
+        distances = torch.sqrt(torch.sum(displacements**2, dim=1))
+        mask = distances < self.neighbor_cutoff
         
         displacements = displacements[mask]
 
@@ -501,6 +489,7 @@ class NNTranslate(MCMove):
 
         # Check if there are no neighboring atoms
         if len(atoms) == 0:
+            logger.info(f"No neighboring atoms found")
             return torch.zeros((2, self.nbins[0], self.nbins[1], self.nbins[2]), 
                              dtype=torch.float32, device=self.device)
 
@@ -563,6 +552,8 @@ class NNTranslate(MCMove):
         Optimized to work directly with numpy arrays efficiently.
         log_probs should be a 3D array with shape (nbins[0], nbins[1], nbins[2]).
         """
+        
+
         # Add Gumbel noise to log probabilities
         gumbel_noise = np.random.gumbel(size=log_probs.shape)
         perturbed_logits = log_probs + gumbel_noise
@@ -588,10 +579,13 @@ class NNTranslate(MCMove):
         
         # Generate random position within bin on GPU, then convert once
         random_offset = (torch.rand(3, device=self.device) - 0.5) * self.binsize
+        
+        bin_delta = torch.tensor(bin_idx, device=self.device) - self.middle_bin_index
         new_pos = bin_center + random_offset
         
+        
         # Single CPU transfer at the end
-        return new_pos.cpu().numpy()
+        return new_pos.cpu().numpy(), bin_delta
 
     #----------------------------------------------------------------------------
     #@time_function
@@ -614,7 +608,7 @@ class NNTranslate(MCMove):
 
     #----------------------------------------------------------------------------
     #@time_function
-    def _calculate_reverse_probability(self, trial_box, new_pos, old_pos, target_mol_idx):
+    def _calculate_reverse_probability(self, trial_box, new_pos, old_pos, bin_delta, target_mol_idx):
         """
         Calculate the reverse probability for the bias correction.
         This computes the probability of proposing old_pos when centered at new_pos.
@@ -638,15 +632,18 @@ class NNTranslate(MCMove):
         # Calculate relative position from new_pos to old_pos
         
         rel_pos = old_pos - new_pos
-        rel_pos = trial_box.boundary(rel_pos)
+        #rel_pos = trial_box.boundary(rel_pos)
         
         # Find which bin this relative position corresponds to (vectorized)
         # Convert to torch tensor for vectorized operations
-        rel_pos_tensor = torch.tensor(rel_pos, dtype=torch.float32, device=self.device)
+        #rel_pos_tensor = torch.tensor(rel_pos, dtype=torch.float32, device=self.device)
         
         # Calculate bin indices (vectorized)
-        bin_coords = (rel_pos_tensor - self.trans_box_low) / self.binsize
-        bin_indices = torch.floor(bin_coords).long()
+        #bin_coords = (rel_pos_tensor - self.trans_box_low) / self.binsize
+        #bin_indices = torch.floor(bin_coords).long()
+        
+        bin_indices = -bin_delta + self.middle_bin_index
+        
         
         #Check if the bin indices are within the bounds of the bins, raise an error if not
         if torch.any(bin_indices < 0) or torch.any(bin_indices > self.nbins):
@@ -659,7 +656,12 @@ class NNTranslate(MCMove):
         # Convert to CPU numpy for indexing (single transfer)
         bin_indices = bin_indices.cpu().numpy()
         
-        return reverse_log_probs[bin_indices[0], bin_indices[1], bin_indices[2]] - np.log(self.bin_volume)
+        return reverse_log_probs[bin_indices[0], bin_indices[1], bin_indices[2]]# - np.log(self.bin_volume)
+    #----------------------------------------------------------------------------
+    def screenout(self):
+        """Prints information about the move."""
+        print(f"Neural Network Translation Acceptance Rate: {self.get_accept_rate():15.8f}")   
+        print(f"Largest displacement: {self.largest_displacement:8.3f} Å")
     #----------------------------------------------------------------------------
     def maintenance(self):
         """

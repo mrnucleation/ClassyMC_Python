@@ -131,6 +131,11 @@ class MolTranslate(MCMove):
         
         return accept
     #----------------------------------------------------------------------------
+    def screenout(self):
+        """Prints information about the move."""
+        print(f"(Molecule Translate) Maximum Displacement: {self.max_dist:15.8f}")
+        print(f"Molecule Translation Acceptance Rate: {self.get_accept_rate():15.8f}")
+    #----------------------------------------------------------------------------
     def maintenance(self):
         """
         Tunes the maximum displacement to achieve a target acceptance rate.
