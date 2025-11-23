@@ -19,6 +19,7 @@ from src_python.CoordinateTypes import Displacement
 from src_python.Box_SimpleBox import SimpleBox
 from src_python.Sampling_Metropolis import Metropolis
 from src_python.Sim_MonteCarlo import SimMonteCarlo
+from src_python.MC_Move_MolTranslation import MolTranslate
 import run_nn_translate_simulation as base_sim
 
 class RLNNTranslate(NNTranslate):
@@ -216,10 +217,17 @@ def main():
         )
         
         mc.BoxList = [box]
+
+        uniform_move = MolTranslate([box], limit=8.0, max_dist=0.1)
+        uniform_move.maintFreq = 10
+        mc.Moves = [uniform_move]
+        mc.moveweights = [25.0]
         
         # Use ONLY the RL move for training efficiency
-        mc.Moves = [nn_move]
-        mc.moveweights = [1.0]
+        #mc.Moves = [nn_move]
+        #mc.moveweights = [1.0]
+        mc.Moves.append(nn_move)
+        mc.moveweights.append(1.0)
         
         mc.Sampling = sampling
         
