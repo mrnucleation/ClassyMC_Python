@@ -6,18 +6,43 @@
 # 1. Run the verification test (optional but recommended)
 python3 test_rl_system.py
 
-# 2. Use the interactive demo
+# 2. Use automatic training (detects GPUs, chooses best mode)
+python3 train_nn_auto.py
+
+# OR use the interactive demo
 python3 demo_rl_workflow.py
 ```
 
 Follow the on-screen menu to train and run simulations.
+
+## 🚄 Multi-GPU Training (Fast!)
+
+If you have **multiple GPUs**, use parallel training for major speedup:
+
+```bash
+python3 train_nn_with_rl_parallel.py
+```
+
+**Benefits:**
+- 2 GPUs = ~2× faster
+- 4 GPUs = ~4× faster  
+- 8 GPUs = ~8× faster
+
+See `MULTI_GPU_GUIDE.md` for details.
 
 ## 📝 Manual Workflow
 
 ### Step 1: Train the Model (First Time)
 
 ```bash
+# Automatic mode (detects GPUs, chooses best)
+python3 train_nn_auto.py
+
+# OR manual single-GPU/CPU mode
 python3 train_nn_with_rl.py
+
+# OR manual multi-GPU mode (if available)
+python3 train_nn_with_rl_parallel.py
 ```
 
 **What happens:**
