@@ -292,15 +292,15 @@ def setup_temperature(box, temperature):
 def setup_nntranslate_move(box):
     """
     Set up the neural network translation move.
+    Auto-detects and loads model_01_rl.pt if available, otherwise model_01.pt.
     """
     print("\nSetting up NNTranslate move...")
     
     # Create NNTranslate move
     nn_move = NNTranslate([box])
     
-    # Create and set a simple neural network
-    # (In practice, this would be a trained model)
-    nn_move.create_and_set_neural_network("model_01.pt")
+    # Create and set neural network (auto-detects RL model)
+    nn_move.create_and_set_neural_network()
     
     print(f"NNTranslate parameters:")
     print(f"  Neighbor cutoff: {nn_move.neighbor_cutoff:.3f}")
@@ -354,8 +354,8 @@ def run_simulation(box, nn_move, n_cycles=100000, moves_per_cycle=104):
     #mc.moveweights = []
     
     #Add NNTranslate move
-    #mc.Moves.append(nn_move)
-    #mc.moveweights.append(1.0)
+    mc.Moves.append(nn_move)
+    mc.moveweights.append(1.0)
     
     mc.Sampling = sampling
     

@@ -314,11 +314,28 @@ class NNTranslate(MCMove):
         Create and set an instance of SimpleFeedforwardNet2Feature.
         
         Args:
-            model_path: Optional path to load pretrained model weights
+            model_path: Optional path to load pretrained model weights.
+                       If None, will automatically check for model_01_rl.pt first,
+                       then fall back to model_01.pt if RL model doesn't exist.
         """
+        import os
+        
         self.nn_model = SimpleFeedforwardNet2Feature()
+        
+        # Auto-detect RL model if no path specified
+        if model_path is None:
+            if os.path.exists("model_01_rl.pt"):
+                model_path = "model_01_rl.pt"
+                print(f"Loading RL-trained model: {model_path}")
+            elif os.path.exists("model_01.pt"):
+                model_path = "model_01.pt"
+                print(f"Loading base model: {model_path}")
+            else:
+                print("Warning: No model file found, using random initialization")
+        
         if model_path is not None:
             self.nn_model.load_state_dict(torch.load(model_path, map_location='cpu'))
+        
         self.nn_model.eval()  # Set to evaluation mode
         self.nn_model.to(self.device)
 
